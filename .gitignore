@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.Python
+venv/
+env/
+.venv
+
+# PyTorch models (file lớn, không commit)
+*.pt
+*.pth
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Node/npm
+node_modules/
+dist/
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
