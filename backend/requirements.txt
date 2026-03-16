@@ -1,11 +1,11 @@
 # API Framework
 fastapi==0.104.1
 uvicorn==0.24.0
-pydantic==2.5.0
+pydantic>=2.10.0
 
 # Machine Learning
-torch==2.1.0
-numpy==1.24.0
+torch==2.6.0
+numpy>=2.0.0
 
 # Testing
 pytest==7.4.3
