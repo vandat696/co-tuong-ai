@@ -1,0 +1,45 @@
+.board-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 40px;
+  background-color: #f5f5dc;
+  min-height: 100vh;
+}
+
+.board-wrapper {
+  position: relative;
+  background-color: #e3c08d;
+  padding: 20px;
+  border: 4px solid #8b4513;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+}
+
+.board-svg {
+  display: block;
+}
+
+.piece-overlay {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  width: 480px;
+  height: 540px;
+  cursor: pointer;
+}
+
+.piece-slot {
+  position: absolute;
+  width: 50px;
+  height: 50px;
+  transform: translate(-50%, -50%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+}
+
+.piece-slot:hover {
+  background-color: rgba(255, 255, 0, 0.2);
+  border-radius: 50%;
+}
