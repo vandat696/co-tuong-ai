@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { getMoveFromAI } from '../api';
 
 // Co-tuong (Chinese Chess) piece setup
 // Board is 10 rows x 9 columns
@@ -61,6 +62,8 @@ export const useGame = () => {
   const [selectedPos, setSelectedPos] = useState(null);
   const [validMoves, setValidMoves] = useState([]);
   const [currentPlayer, setCurrentPlayer] = useState('red');
+  const [isAIThinking, setIsAIThinking] = useState(false);
+  const [gameMode, setGameMode] = useState('pvp'); // 'ai' or 'pvp' (player vs player or player vs AI)
 
   // Calculate valid moves for a piece
   const calculateValidMoves = useCallback((row, col, piece) => {
@@ -221,10 +224,16 @@ export const useGame = () => {
 
   // Handle piece click
   const handlePieceClick = useCallback((row, col) => {
+    console.log('Piece clicked at:', row, col);
+    
     const piece = board[row][col];
+    console.log('Piece at position:', piece);
+    console.log('Current player:', currentPlayer);
+    console.log('Selected pos:', selectedPos);
 
     // If clicking the same piece, deselect it
     if (selectedPos && selectedPos[0] === row && selectedPos[1] === col) {
+      console.log('Deselecting piece');
       setSelectedPos(null);
       setValidMoves([]);
       return;
@@ -237,9 +246,11 @@ export const useGame = () => {
 
       // Check if target is in valid moves
       const isValidMove = validMoves.some(([r, c]) => r === row && c === col);
+      console.log('Valid move:', isValidMove);
 
       if (isValidMove) {
         // Make the move
+        console.log('Making move from', fromRow, fromCol, 'to', row, col);
         const newBoard = board.map(r => [...r]);
         newBoard[row][col] = fromPiece;
         newBoard[fromRow][fromCol] = null;
@@ -249,9 +260,11 @@ export const useGame = () => {
         setCurrentPlayer(currentPlayer === 'red' ? 'black' : 'red');
         setSelectedPos(null);
         setValidMoves([]);
+        // AI will move next turn if gameMode is 'ai'
       } else {
         // Select new piece if it's your turn
         if (piece && piece.side === currentPlayer) {
+          console.log('Selecting new piece');
           setSelectedPos([row, col]);
           setValidMoves(calculateValidMoves(row, col, piece));
         } else {
@@ -261,22 +274,67 @@ export const useGame = () => {
       }
     } else if (piece && piece.side === currentPlayer) {
       // Select a piece
+      console.log('Selecting piece:', piece.type, piece.side);
       setSelectedPos([row, col]);
-      setValidMoves(calculateValidMoves(row, col, piece));
+      const moves = calculateValidMoves(row, col, piece);
+      console.log('Valid moves:', moves);
+      setValidMoves(moves);
     }
   }, [board, selectedPos, validMoves, currentPlayer, calculateValidMoves]);
+
+  // AI move effect - automatically make AI move when it's AI's turn
+  useEffect(() => {
+    if (gameMode !== 'ai' || currentPlayer !== 'black' || isAIThinking || selectedPos) {
+      return;
+    }
+
+    const makeAIMove = async () => {
+      setIsAIThinking(true);
+      try {
+        console.log('AI is thinking... Current board:', board);
+        console.log('Calling AI for black player (isRedTurn=false)');
+        const move = await getMoveFromAI(board, false); // black is not red
+        console.log('AI returned move:', move);
+        const { from: [fromRow, fromCol], to: [toRow, toCol] } = move;
+
+        // Make the AI move
+        const newBoard = board.map(r => [...r]);
+        const piece = newBoard[fromRow][fromCol];
+        newBoard[toRow][toCol] = piece;
+        newBoard[fromRow][fromCol] = null;
+        setBoard(newBoard);
+
+        // Switch back to red player
+        setCurrentPlayer('red');
+      } catch (error) {
+        console.error('AI move failed:', error);
+        // Switch player anyway to avoid getting stuck
+        setCurrentPlayer('red');
+      } finally {
+        setIsAIThinking(false);
+      }
+    };
+
+    // Add a small delay to make the game feel more natural
+    const timer = setTimeout(makeAIMove, 500);
+    return () => clearTimeout(timer);
+  }, [board, gameMode, currentPlayer, isAIThinking, selectedPos]);
 
   return {
     board,
     selectedPos,
     validMoves,
     currentPlayer,
+    isAIThinking,
+    gameMode,
     handlePieceClick,
+    setGameMode,
     resetGame: () => {
       setBoard(INITIAL_BOARD());
       setSelectedPos(null);
       setValidMoves([]);
       setCurrentPlayer('red');
+      setIsAIThinking(false);
     }
   };
 };

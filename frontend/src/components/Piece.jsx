@@ -1,6 +1,6 @@
 import React from 'react';
 
-const Piece = ({ type, side, x, y, isSelected, onClick }) => {
+const Piece = ({ type, side, x, y, isSelected }) => {
   // Piece types: advisor, elephant, horse, chariot, cannon, pawn
   // side: 'red' or 'black'
 
@@ -19,8 +19,6 @@ const Piece = ({ type, side, x, y, isSelected, onClick }) => {
   return (
     <g
       className={`piece ${side} ${type} ${isSelected ? 'selected' : ''}`}
-      onClick={onClick}
-      style={{ cursor: 'pointer' }}
     >
       {/* 背景圆圈 */}
       <circle
