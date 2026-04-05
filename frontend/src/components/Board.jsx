@@ -1,16 +1,16 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { useGame } from '../hooks/useGame';
+import Piece from './Piece';
 import './Board.css';
 
 const Board = () => {
-  // Trạng thái bàn cờ (10 hàng x 9 cột)
-  const [board, setBoard] = useState(
-    Array(10).fill(null).map(() => Array(9).fill(0))
-  );
+  // Game state management
+  const { board, selectedPos, validMoves, currentPlayer, handlePieceClick, resetGame } = useGame();
 
   // Kích thước ô (pixels giữa các giao điểm)
   const CELL_SIZE = 60;
-  const PADDING = 20; // Lề ngoài của bàn
-  const BOARD_WIDTH = 9 * CELL_SIZE + PADDING * 2;  // 9 cột
+  const PADDING = 40; // Lề ngoài của bàn
+  const BOARD_WIDTH = 8 * CELL_SIZE + PADDING * 2;  // 9 cột
   const BOARD_HEIGHT = 9 * CELL_SIZE + PADDING * 2; // 10 hàng
 
   // Hàm tính vị trí của giao điểm (row, col)
@@ -123,30 +123,57 @@ const Board = () => {
             opacity="0.5"
           />
 
-          
-        </svg>
+          {/* Hiển thị vị trí hợp lệ */}
+          {validMoves.map(([row, col], idx) => {
+            const pos = getPositionByGrid(row, col);
+            return (
+              <circle
+                key={`valid-${idx}`}
+                cx={pos.x}
+                cy={pos.y}
+                r="8"
+                fill="#00ff00"
+                opacity="0.6"
+              />
+            );
+          })}
 
-        {/* Lớp overlay để xử lý click - ẩn nhưng có thể tương tác */}
-        <div className="piece-overlay">
-          {board.map((row, rowIndex) => (
-            row.map((cell, colIndex) => {
+          {/* Hiển thị các quân cờ */}
+          {board.map((row, rowIndex) =>
+            row.map((piece, colIndex) => {
+              if (!piece) return null;
               const pos = getPositionByGrid(rowIndex, colIndex);
+              const isSelected = selectedPos && selectedPos[0] === rowIndex && selectedPos[1] === colIndex;
+              
               return (
-                <div
-                  key={`${rowIndex}-${colIndex}`}
-                  className="piece-slot"
-                  style={{
-                    left: `${pos.x}px`,
-                    top: `${pos.y}px`
-                  }}
-                  onClick={() => console.log(`Click giao điểm: [${rowIndex}, ${colIndex}]`)}
-                  title={`[${rowIndex}, ${colIndex}]`}
+                <g
+                  key={`piece-${rowIndex}-${colIndex}`}
+                  onClick={() => handlePieceClick(rowIndex, colIndex)}
+                  style={{ cursor: 'pointer' }}
                 >
-                  {/* Quân cờ sẽ được thêm ở đây */}
-                </div>
+                  <Piece
+                    type={piece.type}
+                    side={piece.side}
+                    x={pos.x}
+                    y={pos.y}
+                    isSelected={isSelected}
+                  />
+                </g>
               );
             })
-          ))}
+          )}
+        </svg>
+
+        {/* Game info */}
+        <div className="game-info">
+          <div className="player-info">
+            <span className={`player ${currentPlayer}`}>
+              {currentPlayer === 'red' ? '🔴 Red' : '⚫ Black'} Player
+            </span>
+          </div>
+          <button className="reset-btn" onClick={resetGame}>
+            ↻ Reset Game
+          </button>
         </div>
       </div>
     </div>
