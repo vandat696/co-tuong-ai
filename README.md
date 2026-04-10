@@ -39,4 +39,4 @@ npm run dev
 AI Engine + API: Board, Move Generation, Minimax, FastAPI
 ML & Training: Dataset, Preprocessing, PyTorch
 Frontend: React, CSS, UX
-Last updated: 16/03/2026
+Last updated: 05/04/2026

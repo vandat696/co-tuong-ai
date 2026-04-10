@@ -5,7 +5,12 @@ import './Board.css';
 
 const Board = () => {
   // Game state management
-  const { board, selectedPos, validMoves, currentPlayer, handlePieceClick, resetGame } = useGame();
+  const { board, selectedPos, validMoves, currentPlayer, isAIThinking, gameMode, handlePieceClick, setGameMode, resetGame } = useGame();
+
+  console.log('Board rendered - Game is ready to play');
+  console.log('Current player:', currentPlayer);
+  console.log('Selected pos:', selectedPos);
+  console.log('Valid moves:', validMoves);
 
   // Kích thước ô (pixels giữa các giao điểm)
   const CELL_SIZE = 60;
@@ -27,7 +32,7 @@ const Board = () => {
           className="board-svg" 
           width={BOARD_WIDTH} 
           height={BOARD_HEIGHT}
-          style={{ border: '2px solid #8b4513' }}
+          style={{ border: '2px solid #8b4513', pointerEvents: 'auto' }}
         >
           {/* Vẽ các đường kẻ ngang */}
           {Array(10).fill(null).map((_, i) => (
@@ -123,43 +128,69 @@ const Board = () => {
             opacity="0.5"
           />
 
-          {/* Hiển thị vị trí hợp lệ */}
-          {validMoves.map(([row, col], idx) => {
-            const pos = getPositionByGrid(row, col);
-            return (
-              <circle
-                key={`valid-${idx}`}
-                cx={pos.x}
-                cy={pos.y}
-                r="8"
-                fill="#00ff00"
-                opacity="0.6"
-              />
-            );
-          })}
-
-          {/* Hiển thị các quân cờ */}
+          {/* Hiển thị các quân cờ và hợp lệ moves */}
           {board.map((row, rowIndex) =>
             row.map((piece, colIndex) => {
-              if (!piece) return null;
               const pos = getPositionByGrid(rowIndex, colIndex);
               const isSelected = selectedPos && selectedPos[0] === rowIndex && selectedPos[1] === colIndex;
               
-              return (
-                <g
-                  key={`piece-${rowIndex}-${colIndex}`}
-                  onClick={() => handlePieceClick(rowIndex, colIndex)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <Piece
-                    type={piece.type}
-                    side={piece.side}
-                    x={pos.x}
-                    y={pos.y}
-                    isSelected={isSelected}
+              if (piece) {
+                // Render piece
+                return (
+                  <g
+                    key={`piece-${rowIndex}-${colIndex}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!isAIThinking) {
+                        console.log('Click on piece at', rowIndex, colIndex);
+                        handlePieceClick(rowIndex, colIndex);
+                      }
+                    }}
+                    style={{
+                      cursor: isAIThinking ? 'not-allowed' : 'pointer',
+                      pointerEvents: 'auto',
+                      opacity: isAIThinking ? 0.6 : 1,
+                      transition: 'opacity 0.2s ease'
+                    }}
+                  >
+                    <Piece
+                      type={piece.type}
+                      side={piece.side}
+                      x={pos.x}
+                      y={pos.y}
+                      isSelected={isSelected}
+                    />
+                  </g>
+                );
+              }
+              
+              // Render empty square clickable if it's a valid move destination
+              const isValidDest = validMoves.some(([r, c]) => r === rowIndex && c === colIndex);
+              if (isValidDest) {
+                return (
+                  <circle
+                    key={`empty-${rowIndex}-${colIndex}`}
+                    cx={pos.x}
+                    cy={pos.y}
+                    r="12"
+                    fill="#00ff00"
+                    opacity="0.6"
+                    style={{
+                      cursor: 'pointer',
+                      pointerEvents: 'auto'
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!isAIThinking) {
+                        console.log('Click on empty square at', rowIndex, colIndex);
+                        handlePieceClick(rowIndex, colIndex);
+                      }
+                    }}
                   />
-                </g>
-              );
+                );
+              }
+              
+              return null;
             })
           )}
         </svg>
@@ -168,12 +199,31 @@ const Board = () => {
         <div className="game-info">
           <div className="player-info">
             <span className={`player ${currentPlayer}`}>
-              {currentPlayer === 'red' ? '🔴 Red' : '⚫ Black'} Player
+              {isAIThinking ? '🤔 AI thinking...' : `${currentPlayer === 'red' ? '🔴 Red' : '⚫ Black'} Player`}
             </span>
           </div>
-          <button className="reset-btn" onClick={resetGame}>
-            ↻ Reset Game
-          </button>
+          
+          <div className="game-controls">
+            <div className="mode-toggle">
+              <button 
+                className={`mode-btn ${gameMode === 'ai' ? 'active' : ''}`}
+                onClick={() => setGameMode('ai')}
+                disabled={isAIThinking}
+              >
+                🤖 vs AI
+              </button>
+              <button 
+                className={`mode-btn ${gameMode === 'pvp' ? 'active' : ''}`}
+                onClick={() => setGameMode('pvp')}
+                disabled={isAIThinking}
+              >
+                👥 PvP
+              </button>
+            </div>
+            <button className="reset-btn" onClick={resetGame} disabled={isAIThinking}>
+              ↻ Reset
+            </button>
+          </div>
         </div>
       </div>
     </div>
