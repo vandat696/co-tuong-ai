@@ -5,13 +5,13 @@ const Piece = ({ type, side, x, y, isSelected }) => {
   // side: 'red' or 'black'
 
   const pieceSymbols = {
-    advisor: { red: '士', black: '将' },
-    elephant: { red: '象', black: '相' },
-    horse: { red: '馬', black: '马' },
-    chariot: { red: '車', black: '车' },
-    cannon: { red: '砲', black: '炮' },
-    pawn: { red: '兵', black: '卒' },
-    king: { red: '帥', black: '帅' },
+    advisor: { black: '士', red: '仕' },
+    elephant: { black: '象', red: '相' },
+    horse: { black: '馬', red: '傌' },
+    chariot: { black: '車', red: '俥' },
+    cannon: { black: '砲', red: '炮' },
+    pawn: { black: '卒', red: '兵' },
+    king: { black: '將', red: '帥' },
   };
 
   const symbol = pieceSymbols[type]?.[side] || '?';
