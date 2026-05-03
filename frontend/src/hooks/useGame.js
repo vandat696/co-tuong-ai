@@ -326,7 +326,40 @@ export const useGame = () => {
         }
       }
 
-      return moves;
+      // === LỌC LUẬT CHỐNG TƯỚNG (FLYING GENERAL) ===
+      const isKingsFacing = (tempBoard) => {
+        let redKing = null;
+        let blackKing = null;
+
+        for (let r = 0; r < 10; r++) {
+          for (let c = 0; c < 9; c++) {
+            const p = tempBoard[r][c];
+            if (p && p.type === "king") {
+              if (p.side === "red") redKing = [r, c];
+              else blackKing = [r, c];
+            }
+          }
+        }
+
+        if (!redKing || !blackKing) return false;
+        if (redKing[1] !== blackKing[1]) return false; // Khác cột
+
+        const col = redKing[1];
+        const startRow = Math.min(redKing[0], blackKing[0]);
+        const endRow = Math.max(redKing[0], blackKing[0]);
+
+        for (let r = startRow + 1; r < endRow; r++) {
+          if (tempBoard[r][col] !== null) return false; // Có quân cản ở giữa
+        }
+        return true;
+      };
+
+      return moves.filter(([tarR, tarC]) => {
+        const tempBoard = board.map((r) => [...r]);
+        tempBoard[tarR][tarC] = piece;
+        tempBoard[row][col] = null;
+        return !isKingsFacing(tempBoard);
+      });
     },
     [board],
   );

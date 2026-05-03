@@ -18,15 +18,24 @@ class MoveGenerator:
     def generate_moves(self, row, col):
         """
         Sinh tất cả nước đi hợp lệ cho quân tại (row, col)
-        Args:
-            row, col: Vị trí quân
-        Return:
-            list: Danh sách nước đi [(to_row, to_col), ...]
+        (Đã bao gồm Lọc luật Chống Tướng)
         """
         piece = self.board.get_piece(row, col)
         
         if piece == Board.EMPTY:
             return []
+            
+        pseudo_moves = self._get_pseudo_moves(row, col, piece)
+        return self._filter_legal_moves(row, col, piece, pseudo_moves)
+        
+    def _get_pseudo_moves(self, row, col, piece):
+        """
+        Sinh nước đi thô (Chưa kiểm tra luật Chống Tướng)
+        Args:
+            row, col: Vị trí quân
+        Return:
+            list: Danh sách nước đi [(to_row, to_col), ...]
+        """
         
         abs_piece = abs(piece)
         
@@ -120,6 +129,49 @@ class MoveGenerator:
         
         return False
     
+    def _is_kings_facing(self):
+        """Kiểm tra xem 2 Tướng có đang đối mặt mà không có quân cản không (Luật Chống Tướng)"""
+        red_king = self.board.find_king('red')
+        black_king = self.board.find_king('black')
+        
+        if not red_king or not black_king:
+            return False  # Mất tướng thì bỏ qua
+            
+        r_row, r_col = red_king
+        b_row, b_col = black_king
+        
+        if r_col != b_col:
+            return False  # Không cùng cột dọc
+            
+        start_row = min(r_row, b_row)
+        end_row = max(r_row, b_row)
+        
+        # Đếm số quân cản ở giữa
+        for row in range(start_row + 1, end_row):
+            if self.board.get_piece(row, r_col) != Board.EMPTY:
+                return False  # Có quân cản
+                
+        return True
+
+    def _filter_legal_moves(self, row, col, piece, pseudo_moves):
+        """Lọc bỏ các nước đi vi phạm luật Chống Tướng"""
+        legal_moves = []
+        
+        for to_row, to_col in pseudo_moves:
+            # Thử di chuyển (giả lập)
+            captured = self.board.get_piece(to_row, to_col)
+            self.board.set_piece(to_row, to_col, piece)
+            self.board.set_piece(row, col, Board.EMPTY)
+            
+            if not self._is_kings_facing():
+                legal_moves.append((to_row, to_col))
+                
+            # Hoàn tác
+            self.board.set_piece(row, col, piece)
+            self.board.set_piece(to_row, to_col, captured)
+            
+        return legal_moves
+
     # ============= CÁC HÀM SINH NƯỚC ĐI =============
     
     def _get_king_moves(self, row, col, piece):
