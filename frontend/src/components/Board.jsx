@@ -26,9 +26,33 @@ const Board = () => {
     y: PADDING + row * CELL_SIZE,
   });
 
+  // Lấy danh sách quân cờ dạng mảng phẳng và giữ thứ tự cố định theo ID.
+  // Kỹ thuật này giúp các node SVG không bị thay đổi thứ tự trong DOM khi bàn cờ cập nhật,
+  // từ đó CSS Transition được kích hoạt hoàn hảo 100% mượt mà.
+  const activePieces = [];
+  board.forEach((row, rowIndex) => {
+    row.forEach((piece, colIndex) => {
+      if (piece) {
+        activePieces.push({ ...piece, rowIndex, colIndex });
+      }
+    });
+  });
+  activePieces.sort((a, b) => {
+    const idA = parseInt(a.id.split("-")[1]);
+    const idB = parseInt(b.id.split("-")[1]);
+    return idA - idB;
+  });
+
   return (
     <div className="board-container">
       <div className="board-wrapper">
+        {/* Thêm CSS để tạo hiệu ứng lướt mượt mà cho quân cờ */}
+        <style>{`
+          .piece-wrapper {
+            transition: transform 0.4s cubic-bezier(0.25, 0.1, 0.25, 1);
+          }
+        `}</style>
+
         {/* SVG vẽ lưới bàn cờ */}
         <svg
           className="board-svg"
@@ -180,32 +204,33 @@ const Board = () => {
           })}
 
           {/* Hiển thị các quân cờ */}
-          {board.map((row, rowIndex) =>
-            row.map((piece, colIndex) => {
-              if (!piece) return null;
-              const pos = getPositionByGrid(rowIndex, colIndex);
-              const isSelected =
-                selectedPos &&
-                selectedPos[0] === rowIndex &&
-                selectedPos[1] === colIndex;
+          {activePieces.map((piece) => {
+            const pos = getPositionByGrid(piece.rowIndex, piece.colIndex);
+            const isSelected =
+              selectedPos &&
+              selectedPos[0] === piece.rowIndex &&
+              selectedPos[1] === piece.colIndex;
 
-              return (
-                <g
-                  key={`piece-${rowIndex}-${colIndex}`}
-                  onClick={() => handlePieceClick(rowIndex, colIndex)}
-                  style={{ cursor: "pointer" }}
-                >
-                  <Piece
-                    type={piece.type}
-                    side={piece.side}
-                    x={pos.x}
-                    y={pos.y}
-                    isSelected={isSelected}
-                  />
-                </g>
-              );
-            }),
-          )}
+            return (
+              <g
+                key={piece.id}
+                className="piece-wrapper"
+                onClick={() => handlePieceClick(piece.rowIndex, piece.colIndex)}
+                style={{
+                  cursor: "pointer",
+                  transform: `translate(${pos.x}px, ${pos.y}px)`,
+                }}
+              >
+                <Piece
+                  type={piece.type}
+                  side={piece.side}
+                  x={0}
+                  y={0}
+                  isSelected={isSelected}
+                />
+              </g>
+            );
+          })}
         </svg>
 
         {/* Game info */}
