@@ -23,6 +23,7 @@ class AIEngine:
         self.time_limit = time_limit
         self.start_time = 0
         self.timeout = False
+        self.transposition_table = {}  # Bộ nhớ đệm Transposition Table
         self.move_gen = MoveGenerator(board)
         self.evaluator = Evaluator(board)
     
@@ -32,6 +33,7 @@ class AIEngine:
         """
         self.start_time = time.time()
         self.timeout = False
+        self.transposition_table.clear()  # Xóa cache mỗi lượt mới để tránh tràn RAM
         best_move_overall = None
         
         # Đào sâu lặp dần từ depth 1 đến max_depth
@@ -151,6 +153,29 @@ class AIEngine:
             self.timeout = True
             return 0
             
+        # ===== Tra cứu Transposition Table (Cache) =====
+        # Dùng chuỗi string của ma trận bàn cờ làm Khóa (Key)
+        state_key = (str(self.board.board), is_red_maximizing)
+        tt_entry = self.transposition_table.get(state_key)
+        
+        if tt_entry is not None and tt_entry['depth'] >= depth:
+            tt_flag = tt_entry['flag']
+            tt_score = tt_entry['score']
+            
+            if tt_flag == 'EXACT':
+                return tt_score
+            elif tt_flag == 'LOWERBOUND':
+                alpha = max(alpha, tt_score)
+            elif tt_flag == 'UPPERBOUND':
+                beta = min(beta, tt_score)
+                
+            if alpha >= beta:
+                return tt_score
+                
+        # Lưu lại alpha, beta ban đầu để quyết định cờ (flag) khi lưu Cache
+        original_alpha = alpha
+        original_beta = beta
+
         # ===== Cơ sở đệ quy =====
         if depth == 0:
             return self.evaluator.evaluate()
@@ -214,6 +239,16 @@ class AIEngine:
                 if beta <= alpha:
                     break
             
+            # Ghi vào Cache trước khi return
+            if not self.timeout:
+                if max_score <= original_alpha:
+                    flag = 'UPPERBOUND'
+                elif max_score >= beta:
+                    flag = 'LOWERBOUND'
+                else:
+                    flag = 'EXACT'
+                self.transposition_table[state_key] = {'depth': depth, 'score': max_score, 'flag': flag}
+                
             return max_score
         else:
             # MIN: Đen muốn điểm thấp
@@ -242,6 +277,16 @@ class AIEngine:
                 if beta <= alpha:
                     break
             
+            # Ghi vào Cache trước khi return
+            if not self.timeout:
+                if min_score >= original_beta:
+                    flag = 'LOWERBOUND'
+                elif min_score <= alpha:
+                    flag = 'UPPERBOUND'
+                else:
+                    flag = 'EXACT'
+                self.transposition_table[state_key] = {'depth': depth, 'score': min_score, 'flag': flag}
+                
             return min_score
 
 
