@@ -57,42 +57,58 @@ class AIEngine:
         
         # Tìm nước đi tốt nhất
         best_move = None
-        best_score = -float('inf') if is_red_turn else float('inf')
+        alpha = -float('inf')
+        beta = float('inf')
         
-        for from_row, from_col, to_row, to_col in all_moves:
-            # Lưu quân bị bắt
-            piece = self.board.get_piece(from_row, from_col)
-            captured_piece = self.board.get_piece(to_row, to_col)
-            
-            # Di chuyển
-            self.board.move_piece(from_row, from_col, to_row, to_col)
-            
-            # Gọi minimax
-            score = self.minimax(self.max_depth - 1, not is_red_turn)
-            
-            # Undo di chuyển
-            self.board.set_piece(from_row, from_col, piece)
-            self.board.set_piece(to_row, to_col, captured_piece)
-            
-            # Cập nhật nước tốt nhất
-            if is_red_turn:
+        if is_red_turn:
+            best_score = -float('inf')
+            for from_row, from_col, to_row, to_col in all_moves:
+                # Lưu quân bị bắt
+                piece = self.board.get_piece(from_row, from_col)
+                captured_piece = self.board.get_piece(to_row, to_col)
+                
+                # Di chuyển
+                self.board.move_piece(from_row, from_col, to_row, to_col)
+                
+                # Gọi minimax có alpha, beta
+                score = self.minimax(self.max_depth - 1, False, alpha, beta)
+                
+                # Undo di chuyển
+                self.board.set_piece(from_row, from_col, piece)
+                self.board.set_piece(to_row, to_col, captured_piece)
+                
                 if score > best_score:
                     best_score = score
                     best_move = (from_row, from_col, to_row, to_col)
-            else:
+                alpha = max(alpha, best_score)
+        else:
+            best_score = float('inf')
+            for from_row, from_col, to_row, to_col in all_moves:
+                piece = self.board.get_piece(from_row, from_col)
+                captured_piece = self.board.get_piece(to_row, to_col)
+                
+                self.board.move_piece(from_row, from_col, to_row, to_col)
+                score = self.minimax(self.max_depth - 1, True, alpha, beta)
+                
+                self.board.set_piece(from_row, from_col, piece)
+                self.board.set_piece(to_row, to_col, captured_piece)
+                
                 if score < best_score:
                     best_score = score
                     best_move = (from_row, from_col, to_row, to_col)
+                beta = min(beta, best_score)
         
         return best_move
     
-    def minimax(self, depth, is_red_maximizing):
+    def minimax(self, depth, is_red_maximizing, alpha=-float('inf'), beta=float('inf')):
         """
         Thuật toán Minimax
         
         Args:
             depth (int): Độ sâu hiện tại (0 = đánh giá)
             is_red_maximizing (bool): True = AI Đỏ (muốn MAX), False = AI Đen (muốn MIN)
+            alpha (float): Giá trị tốt nhất cờ Đỏ (MAX) có thể đảm bảo
+            beta (float): Giá trị tốt nhất cờ Đen (MIN) có thể đảm bảo
         
         Return:
             int: Điểm số tốt nhất
@@ -146,7 +162,7 @@ class AIEngine:
                 self.board.move_piece(from_row, from_col, to_row, to_col)
                 
                 # Đệ quy
-                score = self.minimax(depth - 1, False)
+                score = self.minimax(depth - 1, False, alpha, beta)
                 
                 # Undo
                 self.board.set_piece(from_row, from_col, piece)
@@ -154,6 +170,11 @@ class AIEngine:
                 
                 # Cập nhật
                 max_score = max(max_score, score)
+                alpha = max(alpha, score)
+                
+                # Tỉa nhánh (Pruning)
+                if beta <= alpha:
+                    break
             
             return max_score
         else:
@@ -169,7 +190,7 @@ class AIEngine:
                 self.board.move_piece(from_row, from_col, to_row, to_col)
                 
                 # Đệ quy
-                score = self.minimax(depth - 1, True)
+                score = self.minimax(depth - 1, True, alpha, beta)
                 
                 # Undo
                 self.board.set_piece(from_row, from_col, piece)
@@ -177,6 +198,11 @@ class AIEngine:
                 
                 # Cập nhật
                 min_score = min(min_score, score)
+                beta = min(beta, score)
+                
+                # Tỉa nhánh (Pruning)
+                if beta <= alpha:
+                    break
             
             return min_score
 
