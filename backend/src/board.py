@@ -47,22 +47,22 @@ class Board:
         # Rồi điền các hàng 0, 1, 2 cho quân Đỏ
         #       và hàng 7, 8, 9 cho quân Đen
         board = [[self.EMPTY] * 9 for _ in range(10)]
-        # ====== QUÂN ĐỎ =======
-        board[0] = [self.RED_CHARIOT, self.RED_HORSE, self.RED_ELEPHANT, self.RED_ADVISOR,
-                    self.RED_KING,
-                    self.RED_ADVISOR, self.RED_ELEPHANT, self.RED_HORSE, self.RED_CHARIOT]
-        board[2][1] = self.RED_CANNON
-        board[2][7] = self.RED_CANNON
-        for col in range(0, 9, 2):
-            board[3][col] = self.RED_PAWN
-        # ====== QUÂN ĐEN =======
-        board[9] = [self.BLACK_CHARIOT, self.BLACK_HORSE, self.BLACK_ELEPHANT, self.BLACK_ADVISOR,
+        # ====== QUÂN ĐEN (Đen ở trên) =======
+        board[0] = [self.BLACK_CHARIOT, self.BLACK_HORSE, self.BLACK_ELEPHANT, self.BLACK_ADVISOR,
                     self.BLACK_KING,
                     self.BLACK_ADVISOR, self.BLACK_ELEPHANT, self.BLACK_HORSE, self.BLACK_CHARIOT]
-        board[7][1] = self.BLACK_CANNON
-        board[7][7] = self.BLACK_CANNON
+        board[2][1] = self.BLACK_CANNON
+        board[2][7] = self.BLACK_CANNON
         for col in range(0, 9, 2):
-            board[6][col] = self.BLACK_PAWN
+            board[3][col] = self.BLACK_PAWN
+        # ====== QUÂN ĐỎ (Đỏ ở dưới) =======
+        board[9] = [self.RED_CHARIOT, self.RED_HORSE, self.RED_ELEPHANT, self.RED_ADVISOR,
+                    self.RED_KING,
+                    self.RED_ADVISOR, self.RED_ELEPHANT, self.RED_HORSE, self.RED_CHARIOT]
+        board[7][1] = self.RED_CANNON
+        board[7][7] = self.RED_CANNON
+        for col in range(0, 9, 2):
+            board[6][col] = self.RED_PAWN
         return board
     
     def get_piece(self, row, col):
@@ -153,13 +153,16 @@ class Board:
         Return:
             tuple: (row, col) hoặc None nếu không tìm thấy
         """
-        # TODO: Duyệt qua toàn bộ bàn cờ, tìm Tướng
+        # Tối ưu: Chỉ quét trong khu vực Cung (3x3) thay vì toàn bộ bàn cờ
         if color == "red":
             king = self.RED_KING
+            rows = range(7, 10)  # Cung Đỏ (hàng 7-9)
         else:
             king = self.BLACK_KING
-        for row in range(10):
-            for col in range(9):
+            rows = range(0, 3)   # Cung Đen (hàng 0-2)
+            
+        for row in rows:
+            for col in range(3, 6):  # Cột của cung là 3-5
                 if self.board[row][col] == king:
                     return (row, col)
         return None
