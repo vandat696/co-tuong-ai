@@ -192,11 +192,10 @@ class AIEngine:
                 if is_red_piece != is_red_maximizing:
                     continue
                     
-                moves = self.move_gen.generate_moves(row, col)
+                # Yêu cầu MoveGenerator CHỈ trả về các nước ăn quân để tiết kiệm hiệu năng
+                moves = self.move_gen.generate_moves(row, col, captures_only=True)
                 for to_row, to_col in moves:
-                    # Nếu ô đích có quân -> Đây là nước ăn quân
-                    if self.board.get_piece(to_row, to_col) != Board.EMPTY:
-                        capture_moves.append((row, col, to_row, to_col))
+                    capture_moves.append((row, col, to_row, to_col))
                         
         # Nếu không có nước ăn quân nào, trả về điểm Stand Pat
         if not capture_moves:
@@ -216,6 +215,9 @@ class AIEngine:
                 self.board.set_piece(from_row, from_col, piece)
                 self.board.set_piece(to_row, to_col, captured_piece)
                 
+                if self.timeout:
+                    return 0
+
                 if score >= beta:
                     return beta
                 alpha = max(alpha, score)
@@ -230,6 +232,9 @@ class AIEngine:
                 self.board.set_piece(from_row, from_col, piece)
                 self.board.set_piece(to_row, to_col, captured_piece)
                 
+                if self.timeout:
+                    return 0
+
                 if score <= alpha:
                     return alpha
                 beta = min(beta, score)
@@ -342,6 +347,9 @@ class AIEngine:
                 self.board.set_piece(from_row, from_col, piece)
                 self.board.set_piece(to_row, to_col, captured_piece)
                 
+                if self.timeout:
+                    return 0
+
                 # Cập nhật
                 if score > max_score:
                     max_score = score
@@ -383,6 +391,9 @@ class AIEngine:
                 self.board.set_piece(from_row, from_col, piece)
                 self.board.set_piece(to_row, to_col, captured_piece)
                 
+                if self.timeout:
+                    return 0
+
                 # Cập nhật
                 if score < min_score:
                     min_score = score

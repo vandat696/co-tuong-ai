@@ -15,10 +15,11 @@ class MoveGenerator:
     
     # ============= HÀM CHÍNH =============
     
-    def generate_moves(self, row, col):
+    def generate_moves(self, row, col, captures_only=False):
         """
         Sinh tất cả nước đi hợp lệ cho quân tại (row, col)
         (Đã bao gồm Lọc luật Chống Tướng)
+        Args: captures_only (bool): Nếu True, chỉ trả về các nước ĂN QUÂN
         """
         piece = self.board.get_piece(row, col)
         
@@ -26,6 +27,14 @@ class MoveGenerator:
             return []
             
         pseudo_moves = self._get_pseudo_moves(row, col, piece)
+        
+        # Lọc nước ăn quân (Học từ <CAPTURES> của Pikafish)
+        if captures_only:
+            pseudo_moves = [
+                (r, c) for r, c in pseudo_moves 
+                if self.board.get_piece(r, c) != Board.EMPTY
+            ]
+            
         return self._filter_legal_moves(row, col, piece, pseudo_moves)
         
     def _get_pseudo_moves(self, row, col, piece):

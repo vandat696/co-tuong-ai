@@ -81,7 +81,7 @@ def get_ai_move(request: MoveRequest):
     board.board = request.board_state
 
     # Tạo AIEngine và tìm nước đi tốt nhất
-    engine = AIEngine(board, max_depth=5, time_limit=2.0)
+    engine = AIEngine(board, max_depth=5, time_limit=0.5)
     best_move = engine.get_best_move(request.is_red_turn)
     
     if best_move is None:
