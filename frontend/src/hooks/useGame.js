@@ -56,6 +56,16 @@ const INITIAL_BOARD = () => {
   board[3][6] = { type: "pawn", side: "black" };
   board[3][8] = { type: "pawn", side: "black" };
 
+  // Gắn ID duy nhất cho mỗi quân cờ để React có thể animate khi di chuyển
+  let idCounter = 0;
+  for (let r = 0; r < 10; r++) {
+    for (let c = 0; c < 9; c++) {
+      if (board[r][c]) {
+        board[r][c].id = `piece-${idCounter++}`;
+      }
+    }
+  }
+
   return board;
 };
 
@@ -382,6 +392,10 @@ export const useGame = () => {
           // 2. Gọi API lấy nước đi từ AI
           const aiMove = await fetchAIMove(intBoard, false); // false = AI cầm cờ Đen
           const { from_row, from_col, to_row, to_col } = aiMove;
+
+          // Thêm một độ trễ nhỏ (ví dụ 600ms) để tạo cảm giác AI đang "suy nghĩ"
+          // và giúp người chơi kịp nhìn thấy sự thay đổi trên bàn cờ
+          await new Promise((resolve) => setTimeout(resolve, 600));
 
           // 3. Cập nhật bàn cờ với nước đi của AI
           setBoard((prevBoard) => {
