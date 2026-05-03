@@ -2,6 +2,7 @@
 ai_engine.py - Minimax engine cho cờ tướng
 """
 
+import time
 from src.board import Board
 from src.move_gen import MoveGenerator
 from src.eval import Evaluator
@@ -10,22 +11,47 @@ from src.eval import Evaluator
 class AIEngine:
     """Lớp AI engine dùng Minimax"""
     
-    def __init__(self, board, max_depth=2):
+    def __init__(self, board, max_depth=4, time_limit=2.0):
         """
         Args:
             board (Board): Instance bàn cờ
-            max_depth (int): Độ sâu tìm kiếm
+            max_depth (int): Độ sâu tìm kiếm tối đa
+            time_limit (float): Giới hạn thời gian suy nghĩ (giây)
         """
         self.board = board
         self.max_depth = max_depth
+        self.time_limit = time_limit
+        self.start_time = 0
+        self.timeout = False
         self.move_gen = MoveGenerator(board)
         self.evaluator = Evaluator(board)
     
     def get_best_move(self, is_red_turn):
         """
-        Tìm nước đi tốt nhất bằng Minimax
+        Tìm nước đi tốt nhất với Iterative Deepening (Tính giờ)
+        """
+        self.start_time = time.time()
+        self.timeout = False
+        best_move_overall = None
+        
+        # Đào sâu lặp dần từ depth 1 đến max_depth
+        for depth in range(1, self.max_depth + 1):
+            move = self._search_root(depth, is_red_turn)
+            
+            if self.timeout:
+                break  # Hết giờ, dừng việc tìm kiếm sâu hơn
+                
+            if move is not None:
+                best_move_overall = move  # Cập nhật nước đi tốt nhất của độ sâu này
+                
+        return best_move_overall
+
+    def _search_root(self, depth, is_red_turn):
+        """
+        Khởi chạy tìm kiếm Minimax tại gốc cho một độ sâu cụ thể
         
         Args:
+            depth (int): Độ sâu ở vòng lặp hiện tại
             is_red_turn (bool): True nếu là lượt Đỏ, False là lượt Đen
         
         Return:
@@ -71,12 +97,16 @@ class AIEngine:
                 self.board.move_piece(from_row, from_col, to_row, to_col)
                 
                 # Gọi minimax có alpha, beta
-                score = self.minimax(self.max_depth - 1, False, alpha, beta)
+                score = self.minimax(depth - 1, False, alpha, beta)
                 
                 # Undo di chuyển
                 self.board.set_piece(from_row, from_col, piece)
                 self.board.set_piece(to_row, to_col, captured_piece)
                 
+                # Nếu hết giờ khi đang ở giữa nhánh, hủy bỏ kết quả không trọn vẹn này
+                if self.timeout:
+                    return None
+
                 if score > best_score:
                     best_score = score
                     best_move = (from_row, from_col, to_row, to_col)
@@ -88,11 +118,14 @@ class AIEngine:
                 captured_piece = self.board.get_piece(to_row, to_col)
                 
                 self.board.move_piece(from_row, from_col, to_row, to_col)
-                score = self.minimax(self.max_depth - 1, True, alpha, beta)
+                score = self.minimax(depth - 1, True, alpha, beta)
                 
                 self.board.set_piece(from_row, from_col, piece)
                 self.board.set_piece(to_row, to_col, captured_piece)
                 
+                if self.timeout:
+                    return None
+
                 if score < best_score:
                     best_score = score
                     best_move = (from_row, from_col, to_row, to_col)
@@ -113,6 +146,11 @@ class AIEngine:
         Return:
             int: Điểm số tốt nhất
         """
+        # ===== Kiểm tra thời gian =====
+        if time.time() - self.start_time > self.time_limit:
+            self.timeout = True
+            return 0
+            
         # ===== Cơ sở đệ quy =====
         if depth == 0:
             return self.evaluator.evaluate()
