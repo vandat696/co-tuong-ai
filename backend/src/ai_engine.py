@@ -38,7 +38,7 @@ class AIEngine:
         
         # Đào sâu lặp dần từ depth 1 đến max_depth
         for depth in range(1, self.max_depth + 1):
-            move = self._search_root(depth, is_red_turn)
+            move = self._search_root(depth, is_red_turn, best_move_overall)
             
             if self.timeout:
                 break  # Hết giờ, dừng việc tìm kiếm sâu hơn
@@ -48,13 +48,14 @@ class AIEngine:
                 
         return best_move_overall
 
-    def _search_root(self, depth, is_red_turn):
+    def _search_root(self, depth, is_red_turn, tt_best_move=None):
         """
         Khởi chạy tìm kiếm Minimax tại gốc cho một độ sâu cụ thể
         
         Args:
             depth (int): Độ sâu ở vòng lặp hiện tại
             is_red_turn (bool): True nếu là lượt Đỏ, False là lượt Đen
+            tt_best_move (tuple): Nước đi tốt nhất từ độ sâu trước
         
         Return:
             tuple: (best_row, best_col) hoặc None nếu không có nước đi
@@ -82,6 +83,9 @@ class AIEngine:
         # Nếu không có nước đi
         if not all_moves:
             return None
+            
+        # Sắp xếp nước đi ưu tiên (Move Ordering)
+        all_moves.sort(key=lambda m: self._score_move(m, tt_best_move), reverse=True)
         
         # Tìm nước đi tốt nhất
         best_move = None
@@ -134,6 +138,102 @@ class AIEngine:
                 beta = min(beta, best_score)
         
         return best_move
+
+    def _score_move(self, move, tt_move):
+        """
+        Đánh giá điểm sơ bộ của một nước đi để SẮP XẾP ƯU TIÊN (Move Ordering).
+        MVV-LVA: Most Valuable Victim - Least Valuable Attacker
+        """
+        if move == tt_move:
+            return 1000000  # Ưu tiên tuyệt đối nước đi tốt nhất từ Cache (TT Move)
+            
+        from_row, from_col, to_row, to_col = move
+        captured_piece = self.board.get_piece(to_row, to_col)
+        
+        if captured_piece != Board.EMPTY:
+            attacker = self.board.get_piece(from_row, from_col)
+            # Ưu tiên ăn quân to của địch bằng quân nhỏ của mình
+            return 10 * self.evaluator.get_piece_value(captured_piece) - self.evaluator.get_piece_value(attacker)
+            
+        return 0  # Nước đi thường
+
+    def quiescence_search(self, alpha, beta, is_red_maximizing):
+        """
+        Tìm kiếm tĩnh (Quiescence Search) để tránh Horizon Effect.
+        Chỉ duyệt các nước ĂN QUÂN cho đến khi trạng thái bớt biến động.
+        """
+        # 1. Kiểm tra hết giờ
+        if time.time() - self.start_time > self.time_limit:
+            self.timeout = True
+            return 0
+            
+        # 2. Stand Pat (Đánh giá tĩnh hiện tại)
+        # Giả định cơ bản: Người chơi luôn có thể chọn "không làm gì cả" nếu các nước ăn quân đều tệ.
+        stand_pat = self.evaluator.evaluate()
+        
+        if is_red_maximizing:
+            if stand_pat >= beta:
+                return beta  # Fail-high (Cắt tỉa)
+            alpha = max(alpha, stand_pat)
+        else:
+            if stand_pat <= alpha:
+                return alpha # Fail-low (Cắt tỉa)
+            beta = min(beta, stand_pat)
+            
+        # 3. Chỉ sinh ra các nước ĂN QUÂN
+        capture_moves = []
+        for row in range(self.board.BOARD_ROWS):
+            for col in range(self.board.BOARD_COLS):
+                piece = self.board.get_piece(row, col)
+                if piece == Board.EMPTY:
+                    continue
+                
+                is_red_piece = piece > 0
+                if is_red_piece != is_red_maximizing:
+                    continue
+                    
+                moves = self.move_gen.generate_moves(row, col)
+                for to_row, to_col in moves:
+                    # Nếu ô đích có quân -> Đây là nước ăn quân
+                    if self.board.get_piece(to_row, to_col) != Board.EMPTY:
+                        capture_moves.append((row, col, to_row, to_col))
+                        
+        # Nếu không có nước ăn quân nào, trả về điểm Stand Pat
+        if not capture_moves:
+            return stand_pat
+            
+        # Sắp xếp các nước ăn quân (MVV-LVA) để tối ưu cắt tỉa
+        capture_moves.sort(key=lambda m: self._score_move(m, None), reverse=True)
+        
+        # 4. Đệ quy QSearch
+        if is_red_maximizing:
+            for from_row, from_col, to_row, to_col in capture_moves:
+                piece = self.board.get_piece(from_row, from_col)
+                captured_piece = self.board.get_piece(to_row, to_col)
+                
+                self.board.move_piece(from_row, from_col, to_row, to_col)
+                score = self.quiescence_search(alpha, beta, False)
+                self.board.set_piece(from_row, from_col, piece)
+                self.board.set_piece(to_row, to_col, captured_piece)
+                
+                if score >= beta:
+                    return beta
+                alpha = max(alpha, score)
+            return alpha
+        else:
+            for from_row, from_col, to_row, to_col in capture_moves:
+                piece = self.board.get_piece(from_row, from_col)
+                captured_piece = self.board.get_piece(to_row, to_col)
+                
+                self.board.move_piece(from_row, from_col, to_row, to_col)
+                score = self.quiescence_search(alpha, beta, True)
+                self.board.set_piece(from_row, from_col, piece)
+                self.board.set_piece(to_row, to_col, captured_piece)
+                
+                if score <= alpha:
+                    return alpha
+                beta = min(beta, score)
+            return beta
     
     def minimax(self, depth, is_red_maximizing, alpha=-float('inf'), beta=float('inf')):
         """
@@ -157,6 +257,7 @@ class AIEngine:
         # Dùng chuỗi string của ma trận bàn cờ làm Khóa (Key)
         state_key = (str(self.board.board), is_red_maximizing)
         tt_entry = self.transposition_table.get(state_key)
+        tt_best_move = None
         
         if tt_entry is not None and tt_entry['depth'] >= depth:
             tt_flag = tt_entry['flag']
@@ -172,13 +273,18 @@ class AIEngine:
             if alpha >= beta:
                 return tt_score
                 
+        # Lấy nước đi tốt nhất từ Cache để ưu tiên duyệt trước
+        if tt_entry is not None and 'best_move' in tt_entry:
+            tt_best_move = tt_entry['best_move']
+                
         # Lưu lại alpha, beta ban đầu để quyết định cờ (flag) khi lưu Cache
         original_alpha = alpha
         original_beta = beta
 
         # ===== Cơ sở đệ quy =====
         if depth == 0:
-            return self.evaluator.evaluate()
+            # Khi hết depth, thay vì evaluate ngay, ta chuyển sang QSearch để giải quyết các tranh chấp
+            return self.quiescence_search(alpha, beta, is_red_maximizing)
         
         # Kiểm tra game đã kết thúc
         game_result = self.board.is_game_over()
@@ -209,7 +315,12 @@ class AIEngine:
         
         # Nếu không có nước đi
         if not all_moves:
-            return self.evaluator.evaluate()
+            return self.quiescence_search(alpha, beta, is_red_maximizing)
+        
+        # Sắp xếp nước đi (Move Ordering) để tăng hiệu quả Alpha-Beta Pruning
+        all_moves.sort(key=lambda m: self._score_move(m, tt_best_move), reverse=True)
+        
+        best_move_this_node = None
         
         # ===== Minimax logic =====
         if is_red_maximizing:
@@ -232,7 +343,9 @@ class AIEngine:
                 self.board.set_piece(to_row, to_col, captured_piece)
                 
                 # Cập nhật
-                max_score = max(max_score, score)
+                if score > max_score:
+                    max_score = score
+                    best_move_this_node = (from_row, from_col, to_row, to_col)
                 alpha = max(alpha, score)
                 
                 # Tỉa nhánh (Pruning)
@@ -247,7 +360,8 @@ class AIEngine:
                     flag = 'LOWERBOUND'
                 else:
                     flag = 'EXACT'
-                self.transposition_table[state_key] = {'depth': depth, 'score': max_score, 'flag': flag}
+                self.transposition_table[state_key] = {
+                    'depth': depth, 'score': max_score, 'flag': flag, 'best_move': best_move_this_node}
                 
             return max_score
         else:
@@ -270,7 +384,9 @@ class AIEngine:
                 self.board.set_piece(to_row, to_col, captured_piece)
                 
                 # Cập nhật
-                min_score = min(min_score, score)
+                if score < min_score:
+                    min_score = score
+                    best_move_this_node = (from_row, from_col, to_row, to_col)
                 beta = min(beta, score)
                 
                 # Tỉa nhánh (Pruning)
@@ -285,7 +401,8 @@ class AIEngine:
                     flag = 'UPPERBOUND'
                 else:
                     flag = 'EXACT'
-                self.transposition_table[state_key] = {'depth': depth, 'score': min_score, 'flag': flag}
+                self.transposition_table[state_key] = {
+                    'depth': depth, 'score': min_score, 'flag': flag, 'best_move': best_move_this_node}
                 
             return min_score
 
