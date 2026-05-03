@@ -10,23 +10,51 @@ class Evaluator:
     
     # Điểm số của từng loại quân
     PIECE_VALUES = {
-        Board.RED_KING: 1000,
-        Board.RED_CHARIOT: 20,
-        Board.RED_HORSE: 9,
-        Board.RED_ELEPHANT: 5,
-        Board.RED_CANNON: 10,
-        Board.RED_ADVISOR: 4,
-        Board.RED_PAWN: 2,
+        Board.RED_KING: 10000,
+        Board.RED_CHARIOT: 200,
+        Board.RED_HORSE: 90,
+        Board.RED_ELEPHANT: 50,
+        Board.RED_CANNON: 100,
+        Board.RED_ADVISOR: 40,
+        Board.RED_PAWN: 20,
         
-        Board.BLACK_KING: 1000,
-        Board.BLACK_CHARIOT: 20,
-        Board.BLACK_HORSE: 9,
-        Board.BLACK_ELEPHANT: 5,
-        Board.BLACK_CANNON: 10,
-        Board.BLACK_ADVISOR: 4,
-        Board.BLACK_PAWN: 2,
+        Board.BLACK_KING: 10000,
+        Board.BLACK_CHARIOT: 200,
+        Board.BLACK_HORSE: 90,
+        Board.BLACK_ELEPHANT: 50,
+        Board.BLACK_CANNON: 100,
+        Board.BLACK_ADVISOR: 40,
+        Board.BLACK_PAWN: 20,
     }
     
+    # Bảng vị trí (Piece-Square Tables) - Khuyến khích AI chiếm trung tâm
+    # Góc nhìn của Đỏ (đi từ dưới lên). Cờ Đen sẽ lật ngược chỉ số hàng tự động.
+    PAWN_PST = [
+        [ 0,  3,  6,  9, 12,  9,  6,  3,  0], # Hàng 0: Đáy địch
+        [ 0,  4,  8, 12, 16, 12,  8,  4,  0], # Hàng 1
+        [ 0,  4,  8, 12, 16, 12,  8,  4,  0], # Hàng 2
+        [ 0,  2,  4,  6,  8,  6,  4,  2,  0], # Hàng 3 (Đã qua sông)
+        [ 0,  1,  2,  3,  4,  3,  2,  1,  0], # Hàng 4 (Đã qua sông)
+        [-2,  0,  0,  0,  0,  0,  0,  0, -2], # Hàng 5 (Chưa qua sông, né góc)
+        [-2,  0,  0,  0,  0,  0,  0,  0, -2],
+        [-2,  0,  0,  0,  0,  0,  0,  0, -2],
+        [-2,  0,  0,  0,  0,  0,  0,  0, -2],
+        [-2,  0,  0,  0,  0,  0,  0,  0, -2],
+    ]
+
+    HORSE_PST = [
+        [-4, -2, -2, -2, -2, -2, -2, -2, -4],
+        [-2,  2,  4,  6,  6,  6,  4,  2, -2],
+        [-2,  4,  6,  8,  8,  8,  6,  4, -2],
+        [-2,  4,  6,  8,  8,  8,  6,  4, -2],
+        [-2,  2,  4,  6,  6,  6,  4,  2, -2],
+        [-2,  2,  4,  6,  6,  6,  4,  2, -2],
+        [-2,  4,  6,  8,  8,  8,  6,  4, -2],
+        [-2,  4,  6,  8,  8,  8,  6,  4, -2],
+        [-2,  2,  4,  6,  6,  6,  4,  2, -2],
+        [-4, -2, -2, -2, -2, -2, -2, -2, -4],
+    ]
+
     def __init__(self, board):
         """
         Args:
@@ -53,26 +81,24 @@ class Evaluator:
                 # Lấy giá trị quân
                 piece_value = self.get_piece_value(piece)
                 
-                # Kiểm tra Tốt: chưa qua sông vs đã qua sông
-                if abs(piece) == Board.RED_PAWN or abs(piece) == Board.BLACK_PAWN:
-                    if piece > 0:  # Tốt Đỏ
-                        # Đỏ: row >= 5 → đã qua sông
-                        if row >= 5:
-                            piece_value = 4  # Tốt đã qua sông
-                        else:
-                            piece_value = 2  # Tốt chưa qua sông
-                    else:  # Tốt Đen
-                        # Đen: row <= 4 → đã qua sông
-                        if row <= 4:
-                            piece_value = 4  # Tốt đã qua sông
-                        else:
-                            piece_value = 2  # Tốt chưa qua sông
+                # Tính trọng số vị trí (Heuristic kiểm soát trung tâm)
+                is_red = piece > 0
+                abs_piece = abs(piece)
+                eval_row = row if is_red else 9 - row  # Lật ngược hàng nếu là cờ Đen
+                position_bonus = 0
+                
+                if abs_piece == Board.RED_PAWN:
+                    position_bonus = self.PAWN_PST[eval_row][col]
+                elif abs_piece == Board.RED_HORSE:
+                    position_bonus = self.HORSE_PST[eval_row][col]
+                
+                final_value = piece_value + position_bonus
                 
                 # Cộng/trừ điểm
-                if piece > 0:
-                    score += piece_value
+                if is_red:
+                    score += final_value
                 else:
-                    score -= piece_value
+                    score -= final_value
         
         return score
     
