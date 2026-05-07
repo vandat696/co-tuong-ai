@@ -98,3 +98,37 @@
 .reset-btn:active {
   transform: scale(0.95);
 }
+
+.ai-move-ring {
+  animation: ai-ring-pulse 1.2s ease-in-out infinite;
+}
+
+.ai-move-ring-outer {
+  animation: ai-ring-fade 1.6s ease-in-out infinite;
+}
+
+@keyframes ai-ring-pulse {
+  0% {
+    transform-box: fill-box;
+    transform-origin: center;
+    opacity: 0.95;
+  }
+  50% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0.95;
+  }
+}
+
+@keyframes ai-ring-fade {
+  0% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 0.15;
+  }
+  100% {
+    opacity: 0.45;
+  }
+}

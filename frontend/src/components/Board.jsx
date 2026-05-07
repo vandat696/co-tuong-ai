@@ -10,6 +10,7 @@ const Board = () => {
     selectedPos,
     validMoves,
     currentPlayer,
+    lastAIMove,
     handlePieceClick,
     resetGame,
   } = useGame();
@@ -143,7 +144,6 @@ const Board = () => {
           </text>
 
           {/* Vẽ cung tướng Đỏ (ví dụ - 3x3 ở góc trên) */}
-          {/* Đường chéo thứ nhất */}
           <line
             x1={PADDING + 3 * CELL_SIZE}
             y1={PADDING}
@@ -153,7 +153,6 @@ const Board = () => {
             strokeWidth="1"
             opacity="0.5"
           />
-          {/* Đường chéo thứ hai */}
           <line
             x1={PADDING + 5 * CELL_SIZE}
             y1={PADDING}
@@ -165,7 +164,6 @@ const Board = () => {
           />
 
           {/* Vẽ cung tướng Đen (3x3 ở góc dưới) */}
-          {/* Đường chéo thứ nhất */}
           <line
             x1={PADDING + 3 * CELL_SIZE}
             y1={PADDING + 7 * CELL_SIZE}
@@ -175,7 +173,6 @@ const Board = () => {
             strokeWidth="1"
             opacity="0.5"
           />
-          {/* Đường chéo thứ hai */}
           <line
             x1={PADDING + 5 * CELL_SIZE}
             y1={PADDING + 7 * CELL_SIZE}
@@ -186,7 +183,7 @@ const Board = () => {
             opacity="0.5"
           />
 
-          {/* Hiển thị vị trí hợp lệ */}
+          {/* Hiển thị vị trí hợp lệ của người chơi */}
           {validMoves.map(([row, col], idx) => {
             const pos = getPositionByGrid(row, col);
             return (
@@ -203,6 +200,32 @@ const Board = () => {
             );
           })}
 
+          {/* Hiệu ứng nước đi cuối của AI - cùng hình dạng với marker của người chơi, chỉ khác màu */}
+          {lastAIMove &&
+            (() => {
+              const fromPos = getPositionByGrid(
+                lastAIMove.from[0],
+                lastAIMove.from[1],
+              );
+              const toPos = getPositionByGrid(
+                lastAIMove.to[0],
+                lastAIMove.to[1],
+              );
+
+              return (
+                <g className="ai-last-move-indicator">
+                  {/* Chấm ở vị trí cũ */}
+                  <circle
+                    cx={fromPos.x}
+                    cy={fromPos.y}
+                    r="15"
+                    fill="#3399ff"
+                    opacity="0.7"
+                  />
+                </g>
+              );
+            })()}
+
           {/* Hiển thị các quân cờ */}
           {activePieces.map((piece) => {
             const pos = getPositionByGrid(piece.rowIndex, piece.colIndex);
@@ -210,6 +233,11 @@ const Board = () => {
               selectedPos &&
               selectedPos[0] === piece.rowIndex &&
               selectedPos[1] === piece.colIndex;
+
+            const isAiLastMoveTarget =
+              lastAIMove &&
+              lastAIMove.to[0] === piece.rowIndex &&
+              lastAIMove.to[1] === piece.colIndex;
 
             return (
               <g
@@ -227,6 +255,7 @@ const Board = () => {
                   x={0}
                   y={0}
                   isSelected={isSelected}
+                  isAiLastMoveTarget={isAiLastMoveTarget}
                 />
               </g>
             );

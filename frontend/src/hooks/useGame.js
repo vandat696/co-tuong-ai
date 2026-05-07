@@ -95,6 +95,7 @@ export const useGame = () => {
   const [selectedPos, setSelectedPos] = useState(null);
   const [validMoves, setValidMoves] = useState([]);
   const [currentPlayer, setCurrentPlayer] = useState("red");
+  const [lastAIMove, setLastAIMove] = useState(null);
 
   // Calculate valid moves for a piece
   const calculateValidMoves = useCallback(
@@ -391,6 +392,9 @@ export const useGame = () => {
           newBoard[fromRow][fromCol] = null;
           setBoard(newBoard);
 
+          // Xóa dấu nước đi AI cũ khi người chơi đã đi tiếp
+          setLastAIMove(null);
+
           // Switch player
           setCurrentPlayer(currentPlayer === "red" ? "black" : "red");
           setSelectedPos(null);
@@ -426,8 +430,7 @@ export const useGame = () => {
           const aiMove = await fetchAIMove(intBoard, false); // false = AI cầm cờ Đen
           const { from_row, from_col, to_row, to_col } = aiMove;
 
-          // Thêm một độ trễ nhỏ (ví dụ 600ms) để tạo cảm giác AI đang "suy nghĩ"
-          // và giúp người chơi kịp nhìn thấy sự thay đổi trên bàn cờ
+          // Thêm một độ trễ nhỏ để tạo cảm giác AI đang "suy nghĩ"
           await new Promise((resolve) => setTimeout(resolve, 600));
 
           // 3. Cập nhật bàn cờ với nước đi của AI
@@ -438,7 +441,14 @@ export const useGame = () => {
             return newBoard;
           });
 
-          // 4. Chuyển lại lượt cho người (Đỏ)
+          // 4. Lưu nước đi cuối của AI để render hiệu ứng
+          setLastAIMove({
+            from: [from_row, from_col],
+            to: [to_row, to_col],
+            side: "black",
+          });
+
+          // 5. Chuyển lại lượt cho người (Đỏ)
           setCurrentPlayer("red");
         } catch (error) {
           console.error("Lỗi khi AI đánh:", error);
@@ -447,19 +457,21 @@ export const useGame = () => {
 
       playAIMove();
     }
-  }, [currentPlayer]); // Hook này chạy mỗi khi currentPlayer thay đổi
+  }, [currentPlayer]);
 
   return {
     board,
     selectedPos,
     validMoves,
     currentPlayer,
+    lastAIMove,
     handlePieceClick,
     resetGame: () => {
       setBoard(INITIAL_BOARD());
       setSelectedPos(null);
       setValidMoves([]);
       setCurrentPlayer("red");
+      setLastAIMove(null);
     },
   };
 };

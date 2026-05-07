@@ -1,9 +1,14 @@
 import React from 'react';
 
-const Piece = ({ type, side, x, y, isSelected, onClick }) => {
-  // Piece types: advisor, elephant, horse, chariot, cannon, pawn
-  // side: 'red' or 'black'
-
+const Piece = ({
+  type,
+  side,
+  x,
+  y,
+  isSelected,
+  isAiLastMoveTarget,
+  onClick
+}) => {
   const pieceSymbols = {
     advisor: { red: '士', black: '将' },
     elephant: { red: '象', black: '相' },
@@ -28,8 +33,8 @@ const Piece = ({ type, side, x, y, isSelected, onClick }) => {
         cy={y}
         r="24"
         fill={side === 'red' ? '#ff6b6b' : '#333'}
-        stroke={isSelected ? '#FFD700' : '#000'}
-        strokeWidth={isSelected ? '3' : '2'}
+        stroke={isSelected ? '#FFD700' : isAiLastMoveTarget ? '#007bff' : '#000'}
+        strokeWidth={isSelected || isAiLastMoveTarget ? '3' : '2'}
       />
 
       {/* 棋子内部圆圈（凹陷效果） */}
@@ -55,7 +60,7 @@ const Piece = ({ type, side, x, y, isSelected, onClick }) => {
         {symbol}
       </text>
 
-      {/* 选中时的光晕效果 */}
+      {/* Marker vàng của người chơi */}
       {isSelected && (
         <circle
           cx={x}
@@ -66,6 +71,21 @@ const Piece = ({ type, side, x, y, isSelected, onClick }) => {
           strokeWidth="1"
           opacity="0.7"
           strokeDasharray="5,5"
+        />
+      )}
+
+      {/* Marker xanh của AI - nằm trên quân cờ */}
+      {!isSelected && isAiLastMoveTarget && (
+        <circle
+          cx={x}
+          cy={y}
+          r="28"
+          fill="none"
+          stroke="#00bfff"
+          strokeWidth="1.2"
+          opacity="0.9"
+          strokeDasharray="5,5"
+          className="ai-target-ring"
         />
       )}
     </g>
