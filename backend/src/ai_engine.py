@@ -11,7 +11,7 @@ from src.eval import Evaluator
 class AIEngine:
     """Lớp AI engine dùng Minimax"""
     
-    def __init__(self, board, max_depth=4, time_limit=2.0):
+    def __init__(self, board, max_depth=4, time_limit=2.0, evaluator=None):
         """
         Args:
             board (Board): Instance bàn cờ
@@ -25,7 +25,7 @@ class AIEngine:
         self.timeout = False
         self.transposition_table = {}  # Bộ nhớ đệm Transposition Table
         self.move_gen = MoveGenerator(board)
-        self.evaluator = Evaluator(board)
+        self.evaluator = evaluator if evaluator is not None else Evaluator(board)
     
     def get_best_move(self, is_red_turn):
         """
@@ -169,7 +169,9 @@ class AIEngine:
             
         # 2. Stand Pat (Đánh giá tĩnh hiện tại)
         # Giả định cơ bản: Người chơi luôn có thể chọn "không làm gì cả" nếu các nước ăn quân đều tệ.
-        stand_pat = self.evaluator.evaluate()
+        stand_pat = self.evaluator.evaluate(
+            side_to_move="red" if is_red_maximizing else "black"
+        )
         
         if is_red_maximizing:
             if stand_pat >= beta:

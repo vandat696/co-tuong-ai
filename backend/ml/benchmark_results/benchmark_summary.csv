@@ -1,0 +1,4 @@
+bot_a,bot_b,games,wins_a,wins_b,draws,score_a,score_b,avg_plies,avg_time_red,avg_time_black
+heuristic,ml_only,20,20,0,0,1.0,0.0,9.8,0.143947062254259,0.11381421674560341
+heuristic,hybrid,20,11,0,9,0.775,0.225,104.0,0.13414543009296612,0.07989687682233804
+ml_only,hybrid,20,7,13,0,0.35,0.65,4.85,0.19950299600779545,0.08043479125597514
