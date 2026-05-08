@@ -236,8 +236,8 @@ export const useGame = () => {
             moves.push([nr, nc]);
           }
         }
-      } else if (type === "general") {
-        // General moves 1 step orthogonally, stays in palace
+      } else if (type === "king") {
+        // King moves 1 step orthogonally, stays in palace
         const directions = [
           [0, 1],
           [0, -1],
@@ -297,7 +297,7 @@ export const useGame = () => {
           (side === "red" && row < 5) || (side === "black" && row > 4);
 
         if (side === "red") {
-          // Forward
+          // Forward (Red moves up, decreasing row - toward black side)
           if (row > 0 && (isEmpty(row - 1, col) || isEnemy(row - 1, col))) {
             moves.push([row - 1, col]);
           }
@@ -311,7 +311,7 @@ export const useGame = () => {
             }
           }
         } else {
-          // Forward (for black, downward)
+          // Forward (Black moves down, increasing row - toward red side)
           if (row < 9 && (isEmpty(row + 1, col) || isEnemy(row + 1, col))) {
             moves.push([row + 1, col]);
           }
