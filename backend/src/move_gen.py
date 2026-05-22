@@ -82,9 +82,9 @@ class MoveGenerator:
             bool: True nếu nằm trong cung
         """
         if is_red:
-            return 0 <= row <= 2 and 3 <= col <= 5
-        else:
             return 7 <= row <= 9 and 3 <= col <= 5
+        else:
+            return 0 <= row <= 2 and 3 <= col <= 5
     
     def _is_river(self, row):
         """
@@ -255,9 +255,9 @@ class MoveGenerator:
                 continue
             
             # Kiểm tra không vượt sông
-            if is_red and new_row > 4:
+            if is_red and new_row < 5:
                 continue
-            if not is_red and new_row < 5:
+            if not is_red and new_row > 4:
                 continue
             
             # Kiểm tra quân chặn
@@ -307,14 +307,11 @@ class MoveGenerator:
         """
         Mã: Di chuyển L-shape (1 ngang + 1 chéo), không nhảy qua vật cản
         8 hướng có thể: (+1,-2), (+1,+2), (-1,-2), (-1,+2), (+2,-1), (+2,+1), (-2,-1), (-2,+1)
-        Quân chặn nằm ở (row + row_step, col) hoặc (row, col + col_step)
+        Quân chặn nằm ở bước orthogonal đầu tiên của L-shape
         """
         moves = []
         # Các nước đi L-shape (row_step, col_step)
         l_moves = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]
-        # Quân chặn tương ứng
-        blocks = [(1, 0), (1, 0), (-1, 0), (-1, 0), (0, 1), (0, 1), (0, -1), (0, -1)]
-        
         for i, (dr, dc) in enumerate(l_moves):
             new_row, new_col = row + dr, col + dc
             
@@ -323,8 +320,12 @@ class MoveGenerator:
                 continue
             
             # Kiểm tra quân chặn
-            block_row = row + blocks[i][0]
-            block_col = col + blocks[i][1]
+            if abs(dr) == 2:
+                block_row = row + (1 if dr > 0 else -1)
+                block_col = col
+            else:
+                block_row = row
+                block_col = col + (1 if dc > 0 else -1)
             if self.board.get_piece(block_row, block_col) != Board.EMPTY:
                 continue
             
@@ -385,21 +386,21 @@ class MoveGenerator:
         is_red = piece > 0
         
         if is_red:
-            # Tốt Đỏ: nước đi hướng xuống (tăng row)
-            if row < 5:
-                # Chưa qua sông: chỉ đi xuống
-                directions = [(1, 0)]
-            else:
-                # Qua sông: đi 3 hướng
-                directions = [(1, 0), (-1, 0), (0, 1), (0, -1)]
-        else:
-            # Tốt Đen: nước đi hướng lên (giảm row)
+            # Tốt Đỏ ở dưới bàn cờ, đi lên phía Đen (giảm row)
             if row > 4:
-                # Chưa qua sông: chỉ đi lên
+                # Chưa qua sông: chỉ đi thẳng
                 directions = [(-1, 0)]
             else:
-                # Qua sông: đi 3 hướng
-                directions = [(-1, 0), (1, 0), (0, 1), (0, -1)]
+                # Qua sông: đi thẳng hoặc ngang, không được lùi
+                directions = [(-1, 0), (0, 1), (0, -1)]
+        else:
+            # Tốt Đen ở trên bàn cờ, đi xuống phía Đỏ (tăng row)
+            if row < 5:
+                # Chưa qua sông: chỉ đi thẳng
+                directions = [(1, 0)]
+            else:
+                # Qua sông: đi thẳng hoặc ngang, không được lùi
+                directions = [(1, 0), (0, 1), (0, -1)]
         
         for dr, dc in directions:
             new_row, new_col = row + dr, col + dc
