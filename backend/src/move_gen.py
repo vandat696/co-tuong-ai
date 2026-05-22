@@ -312,7 +312,7 @@ class MoveGenerator:
         moves = []
         # Các nước đi L-shape (row_step, col_step)
         l_moves = [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]
-        for i, (dr, dc) in enumerate(l_moves):
+        for dr, dc in l_moves:
             new_row, new_col = row + dr, col + dc
             
             # Kiểm tra hợp lệ

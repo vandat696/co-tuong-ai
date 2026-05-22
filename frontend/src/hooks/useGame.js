@@ -141,45 +141,21 @@ export const useGame = () => {
       } else if (type === "horse") {
         // Horse moves in L-shape but blocked by adjacent pieces
         const jumps = [
-          [
-            [-1, 0],
-            [-2, -1],
-          ],
-          [
-            [-1, 0],
-            [-2, 1],
-          ],
-          [
-            [0, -1],
-            [-1, -2],
-          ],
-          [
-            [0, -1],
-            [1, -2],
-          ],
-          [
-            [0, 1],
-            [-1, 2],
-          ],
-          [
-            [0, 1],
-            [1, 2],
-          ],
-          [
-            [1, 0],
-            [2, -1],
-          ],
-          [
-            [1, 0],
-            [2, 1],
-          ],
+          [1, 2],
+          [1, -2],
+          [-1, 2],
+          [-1, -2],
+          [2, 1],
+          [2, -1],
+          [-2, 1],
+          [-2, -1],
         ];
 
-        for (const [adj, target] of jumps) {
-          const adjR = row + adj[0],
-            adjC = col + adj[1];
-          const tarR = row + target[0],
-            tarC = col + target[1];
+        for (const [dr, dc] of jumps) {
+          const tarR = row + dr,
+            tarC = col + dc;
+          const adjR = Math.abs(dr) === 2 ? row + Math.sign(dr) : row,
+            adjC = Math.abs(dr) === 2 ? col : col + Math.sign(dc);
 
           if (
             isInBounds(adjR, adjC) &&
@@ -294,7 +270,7 @@ export const useGame = () => {
         // Pawn before crossing river can move forward only
         // After crossing river can move forward or sideways
         const isCrossedRiver =
-          (side === "red" && row < 5) || (side === "black" && row > 4);
+          (side === "red" && row <= 4) || (side === "black" && row >= 5);
 
         if (side === "red") {
           // Forward (Red moves up, decreasing row - toward black side)
@@ -427,7 +403,47 @@ export const useGame = () => {
           const intBoard = boardToIntArray(board);
 
           // 2. Gọi API lấy nước đi từ AI
-          const aiMove = await fetchAIMove(intBoard, false); // false = AI cầm cờ Đen
+          let aiMove = await fetchAIMove(intBoard, false); // false = AI cầm cờ Đen
+
+          const isLegalMove = (move) => {
+            const movingPiece = board[move.from_row]?.[move.from_col];
+            if (!movingPiece || movingPiece.side !== "black") return false;
+
+            return calculateValidMoves(
+              move.from_row,
+              move.from_col,
+              movingPiece,
+            ).some(([row, col]) => row === move.to_row && col === move.to_col);
+          };
+
+          if (!isLegalMove(aiMove)) {
+            console.warn("AI trả về nước đi không hợp lệ, dùng nước dự phòng:", aiMove);
+            aiMove = null;
+
+            for (let row = 0; row < 10 && !aiMove; row++) {
+              for (let col = 0; col < 9 && !aiMove; col++) {
+                const piece = board[row][col];
+                if (!piece || piece.side !== "black") continue;
+
+                const legalMoves = calculateValidMoves(row, col, piece);
+                if (legalMoves.length === 0) continue;
+
+                const [toRow, toCol] = legalMoves[0];
+                aiMove = {
+                  from_row: row,
+                  from_col: col,
+                  to_row: toRow,
+                  to_col: toCol,
+                  score: 0,
+                };
+              }
+            }
+          }
+
+          if (!aiMove) {
+            throw new Error("AI không có nước đi hợp lệ");
+          }
+
           const { from_row, from_col, to_row, to_col } = aiMove;
 
           // Thêm một độ trễ nhỏ để tạo cảm giác AI đang "suy nghĩ"
@@ -435,6 +451,19 @@ export const useGame = () => {
 
           // 3. Cập nhật bàn cờ với nước đi của AI
           setBoard((prevBoard) => {
+            const movingPiece = prevBoard[from_row]?.[from_col];
+            const legalMoves = movingPiece
+              ? calculateValidMoves(from_row, from_col, movingPiece)
+              : [];
+            const isLegalAIMove = legalMoves.some(
+              ([row, col]) => row === to_row && col === to_col,
+            );
+
+            if (!isLegalAIMove) {
+              console.error("AI trả về nước đi không hợp lệ:", aiMove);
+              return prevBoard;
+            }
+
             const newBoard = prevBoard.map((r) => [...r]);
             newBoard[to_row][to_col] = newBoard[from_row][from_col];
             newBoard[from_row][from_col] = null;
@@ -452,12 +481,13 @@ export const useGame = () => {
           setCurrentPlayer("red");
         } catch (error) {
           console.error("Lỗi khi AI đánh:", error);
+          setCurrentPlayer("red");
         }
       };
 
       playAIMove();
     }
-  }, [currentPlayer]);
+  }, [currentPlayer, board, calculateValidMoves]);
 
   return {
     board,

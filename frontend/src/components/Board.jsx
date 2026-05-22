@@ -207,11 +207,6 @@ const Board = () => {
                 lastAIMove.from[0],
                 lastAIMove.from[1],
               );
-              const toPos = getPositionByGrid(
-                lastAIMove.to[0],
-                lastAIMove.to[1],
-              );
-
               return (
                 <g className="ai-last-move-indicator">
                   {/* Chấm ở vị trí cũ */}
