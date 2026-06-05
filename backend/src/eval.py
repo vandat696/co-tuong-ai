@@ -27,7 +27,7 @@ class Evaluator:
         Board.BLACK_PAWN: 20,
     }
     
-    # Bảng vị trí (Piece-Square Tables) - Khuyến khích AI chiếm trung tâm
+    # Bảng vị trí - Khuyến khích AI chiếm trung tâm
     # Góc nhìn của Đỏ (đi từ dưới lên). Cờ Đen sẽ lật ngược chỉ số hàng tự động.
     PAWN_PST = [
         [ 0,  3,  6,  9, 12,  9,  6,  3,  0], # Hàng 0: Đáy địch

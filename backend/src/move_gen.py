@@ -162,9 +162,52 @@ class MoveGenerator:
                 
         return True
 
+    def is_king_in_check(self, color):
+        """Kiểm tra Tướng của một bên có đang bị chiếu không"""
+        king_pos = self.board.find_king(color)
+        if not king_pos:
+            return True
+
+        if self._is_kings_facing():
+            return True
+
+        king_row, king_col = king_pos
+        target_is_red = color == 'red'
+
+        for row in range(10):
+            for col in range(9):
+                piece = self.board.get_piece(row, col)
+                if piece == Board.EMPTY:
+                    continue
+
+                piece_is_red = piece > 0
+                if piece_is_red == target_is_red:
+                    continue
+
+                if (king_row, king_col) in self._get_pseudo_moves(row, col, piece):
+                    return True
+
+        return False
+
+    def has_legal_moves(self, color):
+        """Kiểm tra một bên còn ít nhất một nước hợp lệ không"""
+        is_red = color == 'red'
+
+        for row in range(10):
+            for col in range(9):
+                piece = self.board.get_piece(row, col)
+                if piece == Board.EMPTY:
+                    continue
+
+                if (piece > 0) == is_red and self.generate_moves(row, col):
+                    return True
+
+        return False
+
     def _filter_legal_moves(self, row, col, piece, pseudo_moves):
-        """Lọc bỏ các nước đi vi phạm luật Chống Tướng"""
+        """Lọc bỏ nước khiến Tướng bên đi bị chiếu"""
         legal_moves = []
+        moving_color = 'red' if piece > 0 else 'black'
         
         for to_row, to_col in pseudo_moves:
             # Thử di chuyển (giả lập)
@@ -172,7 +215,7 @@ class MoveGenerator:
             self.board.set_piece(to_row, to_col, piece)
             self.board.set_piece(row, col, Board.EMPTY)
             
-            if not self._is_kings_facing():
+            if not self.is_king_in_check(moving_color):
                 legal_moves.append((to_row, to_col))
                 
             # Hoàn tác

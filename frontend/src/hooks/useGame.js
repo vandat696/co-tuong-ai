@@ -1,5 +1,6 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { fetchAIMove } from "../api";
+import { XiangqiRules } from "../game/XiangqiRules";
 
 // Co-tuong (Chinese Chess) piece setup
 // Board is 10 rows x 9 columns
@@ -99,251 +100,19 @@ export const useGame = () => {
 
   // Calculate valid moves for a piece
   const calculateValidMoves = useCallback(
-    (row, col, piece) => {
-      const moves = [];
-      const { type, side } = piece;
-
-      // Direction helpers
-      const isInBounds = (r, c) => r >= 0 && r < 10 && c >= 0 && c < 9;
-      const isEmpty = (r, c) => board[r][c] === null;
-      const isEnemy = (r, c) => board[r][c] && board[r][c].side !== side;
-
-      // Palace boundaries
-      const isInPalace = (r, c, s) => {
-        if (s === "red") return r >= 7 && r <= 9 && c >= 3 && c <= 5;
-        return r >= 0 && r <= 2 && c >= 3 && c <= 5;
-      };
-
-      if (type === "chariot") {
-        // Chariot moves in straight lines (no obstacles)
-        const directions = [
-          [0, 1],
-          [0, -1],
-          [1, 0],
-          [-1, 0],
-        ];
-        for (const [dr, dc] of directions) {
-          let nr = row + dr,
-            nc = col + dc;
-          while (isInBounds(nr, nc)) {
-            if (isEmpty(nr, nc)) {
-              moves.push([nr, nc]);
-            } else if (isEnemy(nr, nc)) {
-              moves.push([nr, nc]);
-              break;
-            } else {
-              break;
-            }
-            nr += dr;
-            nc += dc;
-          }
-        }
-      } else if (type === "horse") {
-        // Horse moves in L-shape but blocked by adjacent pieces
-        const jumps = [
-          [1, 2],
-          [1, -2],
-          [-1, 2],
-          [-1, -2],
-          [2, 1],
-          [2, -1],
-          [-2, 1],
-          [-2, -1],
-        ];
-
-        for (const [dr, dc] of jumps) {
-          const tarR = row + dr,
-            tarC = col + dc;
-          const adjR = Math.abs(dr) === 2 ? row + Math.sign(dr) : row,
-            adjC = Math.abs(dr) === 2 ? col : col + Math.sign(dc);
-
-          if (
-            isInBounds(adjR, adjC) &&
-            isEmpty(adjR, adjC) &&
-            isInBounds(tarR, tarC) &&
-            (isEmpty(tarR, tarC) || isEnemy(tarR, tarC))
-          ) {
-            moves.push([tarR, tarC]);
-          }
-        }
-      } else if (type === "elephant") {
-        // Elephant moves diagonally 2 steps, not crossing river, blocked by adjacent piece
-        const jumps = [
-          [-2, -2],
-          [-2, 2],
-          [2, -2],
-          [2, 2],
-        ];
-        for (const [dr, dc] of jumps) {
-          const adjR = row + dr / 2,
-            adjC = col + dc / 2;
-          const tarR = row + dr,
-            tarC = col + dc;
-
-          if (
-            isInBounds(tarR, tarC) &&
-            isEmpty(adjR, adjC) &&
-            (isEmpty(tarR, tarC) || isEnemy(tarR, tarC))
-          ) {
-            // Elephant doesn't cross river
-            if (side === "red" && tarR <= 9 && tarR >= 5) {
-              moves.push([tarR, tarC]);
-            } else if (side === "black" && tarR >= 0 && tarR <= 4) {
-              moves.push([tarR, tarC]);
-            }
-          }
-        }
-      } else if (type === "advisor") {
-        // Advisor moves 1 step diagonally, stays in palace
-        const jumps = [
-          [-1, -1],
-          [-1, 1],
-          [1, -1],
-          [1, 1],
-        ];
-        for (const [dr, dc] of jumps) {
-          const nr = row + dr,
-            nc = col + dc;
-          if (
-            isInBounds(nr, nc) &&
-            isInPalace(nr, nc, side) &&
-            (isEmpty(nr, nc) || isEnemy(nr, nc))
-          ) {
-            moves.push([nr, nc]);
-          }
-        }
-      } else if (type === "king") {
-        // King moves 1 step orthogonally, stays in palace
-        const directions = [
-          [0, 1],
-          [0, -1],
-          [1, 0],
-          [-1, 0],
-        ];
-        for (const [dr, dc] of directions) {
-          const nr = row + dr,
-            nc = col + dc;
-          if (
-            isInBounds(nr, nc) &&
-            isInPalace(nr, nc, side) &&
-            (isEmpty(nr, nc) || isEnemy(nr, nc))
-          ) {
-            moves.push([nr, nc]);
-          }
-        }
-      } else if (type === "cannon") {
-        // Cannon moves like chariot but must jump over 1 piece to capture
-        const directions = [
-          [0, 1],
-          [0, -1],
-          [1, 0],
-          [-1, 0],
-        ];
-        for (const [dr, dc] of directions) {
-          // Move without capturing
-          let nr = row + dr,
-            nc = col + dc;
-          while (isInBounds(nr, nc) && isEmpty(nr, nc)) {
-            moves.push([nr, nc]);
-            nr += dr;
-            nc += dc;
-          }
-
-          // Jump over one piece to capture
-          if (isInBounds(nr, nc) && !isEmpty(nr, nc)) {
-            nr += dr;
-            nc += dc;
-            while (isInBounds(nr, nc)) {
-              if (isEmpty(nr, nc)) {
-                nr += dr;
-                nc += dc;
-              } else if (isEnemy(nr, nc)) {
-                moves.push([nr, nc]);
-                break;
-              } else {
-                break;
-              }
-            }
-          }
-        }
-      } else if (type === "pawn") {
-        // Pawn before crossing river can move forward only
-        // After crossing river can move forward or sideways
-        const isCrossedRiver =
-          (side === "red" && row <= 4) || (side === "black" && row >= 5);
-
-        if (side === "red") {
-          // Forward (Red moves up, decreasing row - toward black side)
-          if (row > 0 && (isEmpty(row - 1, col) || isEnemy(row - 1, col))) {
-            moves.push([row - 1, col]);
-          }
-          if (isCrossedRiver) {
-            // Sideways
-            if (col > 0 && (isEmpty(row, col - 1) || isEnemy(row, col - 1))) {
-              moves.push([row, col - 1]);
-            }
-            if (col < 8 && (isEmpty(row, col + 1) || isEnemy(row, col + 1))) {
-              moves.push([row, col + 1]);
-            }
-          }
-        } else {
-          // Forward (Black moves down, increasing row - toward red side)
-          if (row < 9 && (isEmpty(row + 1, col) || isEnemy(row + 1, col))) {
-            moves.push([row + 1, col]);
-          }
-          if (isCrossedRiver) {
-            // Sideways
-            if (col > 0 && (isEmpty(row, col - 1) || isEnemy(row, col - 1))) {
-              moves.push([row, col - 1]);
-            }
-            if (col < 8 && (isEmpty(row, col + 1) || isEnemy(row, col + 1))) {
-              moves.push([row, col + 1]);
-            }
-          }
-        }
-      }
-
-      // === LỌC LUẬT CHỐNG TƯỚNG (FLYING GENERAL) ===
-      const isKingsFacing = (tempBoard) => {
-        let redKing = null;
-        let blackKing = null;
-
-        for (let r = 0; r < 10; r++) {
-          for (let c = 0; c < 9; c++) {
-            const p = tempBoard[r][c];
-            if (p && p.type === "king") {
-              if (p.side === "red") redKing = [r, c];
-              else blackKing = [r, c];
-            }
-          }
-        }
-
-        if (!redKing || !blackKing) return false;
-        if (redKing[1] !== blackKing[1]) return false; // Khác cột
-
-        const col = redKing[1];
-        const startRow = Math.min(redKing[0], blackKing[0]);
-        const endRow = Math.max(redKing[0], blackKing[0]);
-
-        for (let r = startRow + 1; r < endRow; r++) {
-          if (tempBoard[r][col] !== null) return false; // Có quân cản ở giữa
-        }
-        return true;
-      };
-
-      return moves.filter(([tarR, tarC]) => {
-        const tempBoard = board.map((r) => [...r]);
-        tempBoard[tarR][tarC] = piece;
-        tempBoard[row][col] = null;
-        return !isKingsFacing(tempBoard);
-      });
-    },
+    (row, col) => XiangqiRules.getLegalMoves(board, row, col),
     [board],
   );
+
+  const gameStatus = useMemo(() => {
+    return XiangqiRules.getGameStatus(board, currentPlayer);
+  }, [board, currentPlayer]);
 
   // Handle piece click
   const handlePieceClick = useCallback(
     (row, col) => {
+      if (gameStatus.isCheckmate) return;
+
       const piece = board[row][col];
 
       // If clicking the same piece, deselect it
@@ -356,30 +125,27 @@ export const useGame = () => {
       // If clicking empty space or opponent piece, try to move
       if (selectedPos) {
         const [fromRow, fromCol] = selectedPos;
-        const fromPiece = board[fromRow][fromCol];
 
         // Check if target is in valid moves
         const isValidMove = validMoves.some(([r, c]) => r === row && c === col);
 
         if (isValidMove) {
           // Make the move
-          const newBoard = board.map((r) => [...r]);
-          newBoard[row][col] = fromPiece;
-          newBoard[fromRow][fromCol] = null;
+          const newBoard = XiangqiRules.applyMove(board, fromRow, fromCol, row, col);
           setBoard(newBoard);
 
           // Xóa dấu nước đi AI cũ khi người chơi đã đi tiếp
           setLastAIMove(null);
 
           // Switch player
-          setCurrentPlayer(currentPlayer === "red" ? "black" : "red");
+          setCurrentPlayer(XiangqiRules.getOpponent(currentPlayer));
           setSelectedPos(null);
           setValidMoves([]);
         } else {
           // Select new piece if it's your turn
           if (piece && piece.side === currentPlayer) {
             setSelectedPos([row, col]);
-            setValidMoves(calculateValidMoves(row, col, piece));
+            setValidMoves(calculateValidMoves(row, col));
           } else {
             setSelectedPos(null);
             setValidMoves([]);
@@ -388,15 +154,15 @@ export const useGame = () => {
       } else if (piece && piece.side === currentPlayer) {
         // Select a piece
         setSelectedPos([row, col]);
-        setValidMoves(calculateValidMoves(row, col, piece));
+        setValidMoves(calculateValidMoves(row, col));
       }
     },
-    [board, selectedPos, validMoves, currentPlayer, calculateValidMoves],
+    [board, selectedPos, validMoves, currentPlayer, calculateValidMoves, gameStatus.isCheckmate],
   );
 
   // Lắng nghe sự thay đổi lượt chơi, nếu đến lượt Đen (AI) thì tự động gọi API
   useEffect(() => {
-    if (currentPlayer === "black") {
+    if (currentPlayer === "black" && !gameStatus.isCheckmate) {
       const playAIMove = async () => {
         try {
           // 1. Chuyển đổi dữ liệu bàn cờ
@@ -405,39 +171,19 @@ export const useGame = () => {
           // 2. Gọi API lấy nước đi từ AI
           let aiMove = await fetchAIMove(intBoard, false); // false = AI cầm cờ Đen
 
-          const isLegalMove = (move) => {
-            const movingPiece = board[move.from_row]?.[move.from_col];
-            if (!movingPiece || movingPiece.side !== "black") return false;
-
-            return calculateValidMoves(
+          const isLegalMove = (move) =>
+            XiangqiRules.isLegalMove(
+              board,
               move.from_row,
               move.from_col,
-              movingPiece,
-            ).some(([row, col]) => row === move.to_row && col === move.to_col);
-          };
+              move.to_row,
+              move.to_col,
+              "black",
+            );
 
-          if (!isLegalMove(aiMove)) {
+          if (!aiMove || !isLegalMove(aiMove)) {
             console.warn("AI trả về nước đi không hợp lệ, dùng nước dự phòng:", aiMove);
-            aiMove = null;
-
-            for (let row = 0; row < 10 && !aiMove; row++) {
-              for (let col = 0; col < 9 && !aiMove; col++) {
-                const piece = board[row][col];
-                if (!piece || piece.side !== "black") continue;
-
-                const legalMoves = calculateValidMoves(row, col, piece);
-                if (legalMoves.length === 0) continue;
-
-                const [toRow, toCol] = legalMoves[0];
-                aiMove = {
-                  from_row: row,
-                  from_col: col,
-                  to_row: toRow,
-                  to_col: toCol,
-                  score: 0,
-                };
-              }
-            }
+            aiMove = XiangqiRules.getFallbackMove(board, "black");
           }
 
           if (!aiMove) {
@@ -451,12 +197,13 @@ export const useGame = () => {
 
           // 3. Cập nhật bàn cờ với nước đi của AI
           setBoard((prevBoard) => {
-            const movingPiece = prevBoard[from_row]?.[from_col];
-            const legalMoves = movingPiece
-              ? calculateValidMoves(from_row, from_col, movingPiece)
-              : [];
-            const isLegalAIMove = legalMoves.some(
-              ([row, col]) => row === to_row && col === to_col,
+            const isLegalAIMove = XiangqiRules.isLegalMove(
+              prevBoard,
+              from_row,
+              from_col,
+              to_row,
+              to_col,
+              "black",
             );
 
             if (!isLegalAIMove) {
@@ -464,10 +211,7 @@ export const useGame = () => {
               return prevBoard;
             }
 
-            const newBoard = prevBoard.map((r) => [...r]);
-            newBoard[to_row][to_col] = newBoard[from_row][from_col];
-            newBoard[from_row][from_col] = null;
-            return newBoard;
+            return XiangqiRules.applyMove(prevBoard, from_row, from_col, to_row, to_col);
           });
 
           // 4. Lưu nước đi cuối của AI để render hiệu ứng
@@ -487,7 +231,7 @@ export const useGame = () => {
 
       playAIMove();
     }
-  }, [currentPlayer, board, calculateValidMoves]);
+  }, [currentPlayer, board, gameStatus.isCheckmate]);
 
   return {
     board,
@@ -495,6 +239,7 @@ export const useGame = () => {
     validMoves,
     currentPlayer,
     lastAIMove,
+    gameStatus,
     handlePieceClick,
     resetGame: () => {
       setBoard(INITIAL_BOARD());
