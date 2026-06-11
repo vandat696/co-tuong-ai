@@ -10,21 +10,21 @@ class Evaluator:
     
     # Điểm số của từng loại quân
     PIECE_VALUES = {
-        Board.RED_KING: 10000,
-        Board.RED_CHARIOT: 200,
-        Board.RED_HORSE: 90,
-        Board.RED_ELEPHANT: 50,
-        Board.RED_CANNON: 100,
-        Board.RED_ADVISOR: 40,
-        Board.RED_PAWN: 20,
+        Board.RED_KING: 6000,
+        Board.RED_CHARIOT: 600,
+        Board.RED_HORSE: 270,
+        Board.RED_ELEPHANT: 120,
+        Board.RED_CANNON: 285,
+        Board.RED_ADVISOR: 120,
+        Board.RED_PAWN: 30,
         
-        Board.BLACK_KING: 10000,
-        Board.BLACK_CHARIOT: 200,
-        Board.BLACK_HORSE: 90,
-        Board.BLACK_ELEPHANT: 50,
-        Board.BLACK_CANNON: 100,
-        Board.BLACK_ADVISOR: 40,
-        Board.BLACK_PAWN: 20,
+        Board.BLACK_KING: 6000,
+        Board.BLACK_CHARIOT: 600,
+        Board.BLACK_HORSE: 270,
+        Board.BLACK_ELEPHANT: 120,
+        Board.BLACK_CANNON: 285,
+        Board.BLACK_ADVISOR: 120,
+        Board.BLACK_PAWN: 30,
     }
     
     # Bảng vị trí (Piece-Square Tables) - Khuyến khích AI chiếm trung tâm
