@@ -34,6 +34,7 @@ class AIEngine:
         self.start_time = time.time()
         self.timeout = False
         self.transposition_table.clear()  # Xóa cache mỗi lượt mới để tránh tràn RAM
+        self.evaluator._calculate_initial_score()  # Đồng bộ lại điểm (Cả MG, EG, Phase)
         best_move_overall = None
         
         # Đào sâu lặp dần từ depth 1 đến max_depth
@@ -98,16 +99,18 @@ class AIEngine:
                 # Lưu quân bị bắt
                 piece = self.board.get_piece(from_row, from_col)
                 captured_piece = self.board.get_piece(to_row, to_col)
+                old_clock = self.board.half_move_clock
                 
                 # Di chuyển
+                self.evaluator.update_move(from_row, from_col, to_row, to_col, piece, captured_piece)
                 self.board.move_piece(from_row, from_col, to_row, to_col)
                 
                 # Gọi minimax có alpha, beta
                 score = self.minimax(depth - 1, False, alpha, beta)
                 
                 # Undo di chuyển
-                self.board.set_piece(from_row, from_col, piece)
-                self.board.set_piece(to_row, to_col, captured_piece)
+                self.board.undo_move(from_row, from_col, to_row, to_col, piece, captured_piece, old_clock)
+                self.evaluator.undo_update_move(from_row, from_col, to_row, to_col, piece, captured_piece)
                 
                 # Nếu hết giờ khi đang ở giữa nhánh, hủy bỏ kết quả không trọn vẹn này
                 if self.timeout:
@@ -122,12 +125,14 @@ class AIEngine:
             for from_row, from_col, to_row, to_col in all_moves:
                 piece = self.board.get_piece(from_row, from_col)
                 captured_piece = self.board.get_piece(to_row, to_col)
+                old_clock = self.board.half_move_clock
                 
+                self.evaluator.update_move(from_row, from_col, to_row, to_col, piece, captured_piece)
                 self.board.move_piece(from_row, from_col, to_row, to_col)
                 score = self.minimax(depth - 1, True, alpha, beta)
                 
-                self.board.set_piece(from_row, from_col, piece)
-                self.board.set_piece(to_row, to_col, captured_piece)
+                self.board.undo_move(from_row, from_col, to_row, to_col, piece, captured_piece, old_clock)
+                self.evaluator.undo_update_move(from_row, from_col, to_row, to_col, piece, captured_piece)
                 
                 if self.timeout:
                     return None
@@ -209,11 +214,13 @@ class AIEngine:
             for from_row, from_col, to_row, to_col in capture_moves:
                 piece = self.board.get_piece(from_row, from_col)
                 captured_piece = self.board.get_piece(to_row, to_col)
+                old_clock = self.board.half_move_clock
                 
+                self.evaluator.update_move(from_row, from_col, to_row, to_col, piece, captured_piece)
                 self.board.move_piece(from_row, from_col, to_row, to_col)
                 score = self.quiescence_search(alpha, beta, False)
-                self.board.set_piece(from_row, from_col, piece)
-                self.board.set_piece(to_row, to_col, captured_piece)
+                self.board.undo_move(from_row, from_col, to_row, to_col, piece, captured_piece, old_clock)
+                self.evaluator.undo_update_move(from_row, from_col, to_row, to_col, piece, captured_piece)
                 
                 if self.timeout:
                     return 0
@@ -226,11 +233,13 @@ class AIEngine:
             for from_row, from_col, to_row, to_col in capture_moves:
                 piece = self.board.get_piece(from_row, from_col)
                 captured_piece = self.board.get_piece(to_row, to_col)
+                old_clock = self.board.half_move_clock
                 
+                self.evaluator.update_move(from_row, from_col, to_row, to_col, piece, captured_piece)
                 self.board.move_piece(from_row, from_col, to_row, to_col)
                 score = self.quiescence_search(alpha, beta, True)
-                self.board.set_piece(from_row, from_col, piece)
-                self.board.set_piece(to_row, to_col, captured_piece)
+                self.board.undo_move(from_row, from_col, to_row, to_col, piece, captured_piece, old_clock)
+                self.evaluator.undo_update_move(from_row, from_col, to_row, to_col, piece, captured_piece)
                 
                 if self.timeout:
                     return 0
@@ -290,6 +299,15 @@ class AIEngine:
         if depth == 0:
             # Khi hết depth, thay vì evaluate ngay, ta chuyển sang QSearch để giải quyết các tranh chấp
             return self.quiescence_search(alpha, beta, is_red_maximizing)
+            
+        # ===== Kiểm tra Hòa & Lặp lại =====
+        if self.board.half_move_clock >= 120:
+            return 0  # Hòa do Effective Rule (120 nửa nước)
+            
+        state_hash = self.board.get_state_hash()
+        if self.board.history.count(state_hash) >= 3:
+            # Lặp lại 3 lần -> Tạm xử hòa (Luật Zobrist Repetition)
+            return 0
         
         # Kiểm tra game đã kết thúc
         game_result = self.board.is_game_over()
@@ -318,9 +336,9 @@ class AIEngine:
                 for to_row, to_col in moves:
                     all_moves.append((row, col, to_row, to_col))
         
-        # Nếu không có nước đi
+        # Nếu không có nước đi (Stalemate -> Thua)
         if not all_moves:
-            return self.quiescence_search(alpha, beta, is_red_maximizing)
+            return -10000 if is_red_maximizing else 10000
         
         # Sắp xếp nước đi (Move Ordering) để tăng hiệu quả Alpha-Beta Pruning
         all_moves.sort(key=lambda m: self._score_move(m, tt_best_move), reverse=True)
@@ -336,16 +354,18 @@ class AIEngine:
                 # Lưu quân
                 piece = self.board.get_piece(from_row, from_col)
                 captured_piece = self.board.get_piece(to_row, to_col)
+                old_clock = self.board.half_move_clock
                 
                 # Di chuyển
+                self.evaluator.update_move(from_row, from_col, to_row, to_col, piece, captured_piece)
                 self.board.move_piece(from_row, from_col, to_row, to_col)
                 
                 # Đệ quy
                 score = self.minimax(depth - 1, False, alpha, beta)
                 
                 # Undo
-                self.board.set_piece(from_row, from_col, piece)
-                self.board.set_piece(to_row, to_col, captured_piece)
+                self.board.undo_move(from_row, from_col, to_row, to_col, piece, captured_piece, old_clock)
+                self.evaluator.undo_update_move(from_row, from_col, to_row, to_col, piece, captured_piece)
                 
                 if self.timeout:
                     return 0
@@ -380,16 +400,18 @@ class AIEngine:
                 # Lưu quân
                 piece = self.board.get_piece(from_row, from_col)
                 captured_piece = self.board.get_piece(to_row, to_col)
+                old_clock = self.board.half_move_clock
                 
                 # Di chuyển
+                self.evaluator.update_move(from_row, from_col, to_row, to_col, piece, captured_piece)
                 self.board.move_piece(from_row, from_col, to_row, to_col)
                 
                 # Đệ quy
                 score = self.minimax(depth - 1, True, alpha, beta)
                 
                 # Undo
-                self.board.set_piece(from_row, from_col, piece)
-                self.board.set_piece(to_row, to_col, captured_piece)
+                self.board.undo_move(from_row, from_col, to_row, to_col, piece, captured_piece, old_clock)
+                self.evaluator.undo_update_move(from_row, from_col, to_row, to_col, piece, captured_piece)
                 
                 if self.timeout:
                     return 0

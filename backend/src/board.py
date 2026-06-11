@@ -34,6 +34,12 @@ class Board:
         """Khởi tạo bàn cờ ở trạng thái ban đầu"""
         self.board = self._init_board()
         self.current_player = 'red'  # Đỏ đi trước
+        self.half_move_clock = 0
+        self.history = [self.get_state_hash()]
+        
+    def get_state_hash(self):
+        """Sinh chuỗi đại diện cho bàn cờ hiện tại"""
+        return str(self.board)
     
     def _init_board(self):
         """
@@ -136,12 +142,35 @@ class Board:
         piece = self.board[from_row][from_col]
         if piece == self.EMPTY:
             return False
+            
+        target_piece = self.board[to_row][to_col]
+        is_capture = (target_piece != self.EMPTY)
+        is_pawn_advance = abs(piece) == self.RED_PAWN
+        
         #   4. Đặt quân vào vị trí mới
         self.board[to_row][to_col] = piece        
         #   5. Đặt EMPTY tại vị trí cũ
         self.board[from_row][from_col] = self.EMPTY
+        
+        # Cập nhật history và clock
+        if is_capture or is_pawn_advance:
+            self.half_move_clock = 0
+        else:
+            self.half_move_clock += 1
+        self.history.append(self.get_state_hash())
+        
         #   6. Return True
         return True
+        
+    def undo_move(self, from_row, from_col, to_row, to_col, piece, captured_piece, old_clock):
+        """
+        Hoàn tác một nước đi (phục vụ cho thuật toán AI)
+        """
+        self.board[from_row][from_col] = piece
+        self.board[to_row][to_col] = captured_piece
+        self.half_move_clock = old_clock
+        if len(self.history) > 0:
+            self.history.pop()
     
     def find_king(self, color):
         """
