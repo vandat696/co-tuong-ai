@@ -20,6 +20,8 @@ class MoveRequest(BaseModel):
     """Request body cho /move endpoint"""
     board_state: List[List[int]]  # Mảng 10x9
     is_red_turn: bool  # True = lượt Đỏ
+    half_move_clock: int = 0
+    history: List[str] = []
 
 
 class MoveResponse(BaseModel):
@@ -29,6 +31,8 @@ class MoveResponse(BaseModel):
     to_row: int
     to_col: int
     score: int
+    half_move_clock: int
+    history: List[str]
 
 
 # ===== FastAPI App =====
@@ -79,6 +83,8 @@ def get_ai_move(request: MoveRequest):
     # Tạo Board từ board_state
     board = Board()
     board.board = request.board_state
+    board.half_move_clock = request.half_move_clock
+    board.history = request.history
 
     # Tạo AIEngine và tìm nước đi tốt nhất
     engine = AIEngine(board, max_depth=5, time_limit=0.5)
@@ -89,6 +95,9 @@ def get_ai_move(request: MoveRequest):
     
     from_row, from_col, to_row, to_col = best_move
     
+    # Thực hiện nước đi trên board để lấy clock và history mới
+    board.move_piece(from_row, from_col, to_row, to_col)
+    
     # Tính điểm số hiện tại
     evaluator = Evaluator(board)
     score = evaluator.evaluate()
@@ -98,7 +107,9 @@ def get_ai_move(request: MoveRequest):
         from_col=from_col,
         to_row=to_row,
         to_col=to_col,
-        score=score
+        score=score,
+        half_move_clock=board.half_move_clock,
+        history=board.history
     )
 
 
