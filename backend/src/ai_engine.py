@@ -34,7 +34,7 @@ class AIEngine:
         self.start_time = time.time()
         self.timeout = False
         self.transposition_table.clear()  # Xóa cache mỗi lượt mới để tránh tràn RAM
-        self.evaluator.current_score = self.evaluator._calculate_initial_score()  # Đồng bộ lại điểm
+        self.evaluator._calculate_initial_score()  # Đồng bộ lại điểm (Cả MG, EG, Phase)
         best_move_overall = None
         
         # Đào sâu lặp dần từ depth 1 đến max_depth
