@@ -9,15 +9,15 @@ const Piece = ({
   isAiLastMoveTarget,
   onClick
 }) => {
-  const pieceSymbols = {
-    advisor: { red: '士', black: '将' },
-    elephant: { red: '象', black: '相' },
-    horse: { red: '馬', black: '马' },
-    chariot: { red: '車', black: '车' },
-    cannon: { red: '砲', black: '炮' },
-    pawn: { red: '兵', black: '卒' },
-    king: { red: '帥', black: '帅' },
-  };
+const pieceSymbols = {
+  advisor: { red: '仕', black: '士' },      // Sĩ
+  elephant: { red: '相', black: '象' },    // Tượng
+  horse: { red: '傌', black: '馬' },       // Mã
+  chariot: { red: '俥', black: '車' },     // Xe
+  cannon: { red: '炮', black: '砲' },      // Pháo
+  pawn: { red: '兵', black: '卒' },        // Tốt
+  king: { red: '帥', black: '將' },        // Tướng 
+};
 
   const symbol = pieceSymbols[type]?.[side] || '?';
 
