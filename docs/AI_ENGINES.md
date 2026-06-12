@@ -25,6 +25,16 @@ Khi frontend yêu cầu một nước đi:
 4. Engine tìm nước đi tốt nhất trong giới hạn cấu hình.
 5. Backend kiểm tra nước đi, cập nhật trạng thái và trả kết quả cho frontend.
 
+Backend Python là nguồn luật chính thức qua các endpoint:
+
+- `POST /legal-moves`: lấy các nước hợp lệ của một quân.
+- `POST /validate-move`: kiểm tra một nước mà không thực hiện.
+- `POST /apply-move`: xác nhận và thực hiện nước người chơi.
+- `POST /ai-move` hoặc alias tương thích `POST /move`: lấy và xác nhận nước do AI đề xuất.
+
+Frontend không còn chứa bộ sinh nước đi riêng. Nó chỉ hiển thị các nước do backend
+Python trả về và áp dụng nước sau khi backend xác nhận.
+
 ```text
 Frontend
    |
@@ -219,7 +229,7 @@ coi nó là một phiên bản AI riêng.
 
 ## Hạn chế hiện tại
 
-- Backend và frontend vẫn có hai implementation luật chơi riêng.
+- Trạng thái ván hiện vẫn được frontend gửi kèm mỗi request; backend chưa lưu session ván đấu.
 - Chưa có hệ thống đấu hàng trăm ván và tính Elo.
 - Chưa lưu thống kê nodes, nodes/second, độ sâu hoàn thành hoặc số lần trúng TT.
 - AI Python chưa có giao diện UCI.

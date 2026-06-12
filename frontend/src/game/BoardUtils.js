@@ -1,15 +1,6 @@
 export class BoardUtils {
   static ROWS = 10;
   static COLS = 9;
-  static PIECE_VALUES = {
-    king: 1,
-    advisor: 2,
-    elephant: 3,
-    chariot: 4,
-    horse: 5,
-    cannon: 6,
-    pawn: 7,
-  };
 
   static isInBounds(row, col) {
     return row >= 0 && row < this.ROWS && col >= 0 && col < this.COLS;
@@ -45,18 +36,6 @@ export class BoardUtils {
     nextBoard[toRow][toCol] = nextBoard[fromRow][fromCol];
     nextBoard[fromRow][fromCol] = null;
     return nextBoard;
-  }
-
-  static stateHash(board) {
-    return JSON.stringify(
-      board.map((row) =>
-        row.map((piece) => {
-          if (!piece) return 0;
-          const value = this.PIECE_VALUES[piece.type];
-          return piece.side === "red" ? value : -value;
-        }),
-      ),
-    );
   }
 
   static findKing(board, side) {

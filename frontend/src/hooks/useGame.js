@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { fetchAIMove, fetchAIVersions } from "../api";
-import { XiangqiRules } from "../game/XiangqiRules";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { applyPlayerMove, fetchAIMove, fetchAIVersions, fetchLegalMoves } from "../api";
 import { BoardUtils } from "../game/BoardUtils";
 
 const HUMAN = "human";
@@ -35,6 +34,20 @@ const FALLBACK_AI_VERSIONS = [
 const emptyStats = () => ({
   red: { moves: 0, totalMs: 0, lastMs: 0 },
   black: { moves: 0, totalMs: 0, lastMs: 0 },
+});
+
+const emptyGameStatus = {
+  checkedSide: null,
+  isCheckmate: false,
+  winner: null,
+  checkedKingPos: null,
+};
+
+const normalizeStatus = (status) => ({
+  checkedSide: status?.checked_side ?? null,
+  isCheckmate: status?.is_checkmate ?? false,
+  winner: status?.winner ?? null,
+  checkedKingPos: status?.checked_king_pos ?? null,
 });
 
 const createInitialBoard = () => {
@@ -103,6 +116,7 @@ export const useGame = () => {
   const [moveLog, setMoveLog] = useState([]);
   const [stats, setStats] = useState(emptyStats);
   const [arenaError, setArenaError] = useState("");
+  const [gameStatus, setGameStatus] = useState(emptyGameStatus);
   const thinkingRef = useRef(false);
 
   useEffect(() => {
@@ -111,15 +125,10 @@ export const useGame = () => {
       .catch(() => setArenaError("Không tải được danh sách AI; đang dùng cấu hình mặc định."));
   }, []);
 
-  const gameStatus = useMemo(
-    () => XiangqiRules.getGameStatus(board, currentPlayer, history),
-    [board, currentPlayer, history],
-  );
-
   const currentController = controllers[currentPlayer];
 
   const handlePieceClick = useCallback(
-    (row, col) => {
+    async (row, col) => {
       if (gameStatus.isCheckmate || isThinking || currentController !== HUMAN) return;
 
       const piece = board[row][col];
@@ -134,34 +143,60 @@ export const useGame = () => {
         const canMove = validMoves.some(([r, c]) => r === row && c === col);
 
         if (canMove) {
-          const nextBoard = XiangqiRules.applyMove(board, fromRow, fromCol, row, col);
-          setBoard(nextBoard);
-          setCurrentPlayer(XiangqiRules.getOpponent(currentPlayer));
-          setLastAIMove(null);
-          setSelectedPos(null);
-          setValidMoves([]);
-          setHalfMoveClock(0);
-          setHistory((states) => [
-            ...(states.length ? states : [BoardUtils.stateHash(board)]),
-            BoardUtils.stateHash(nextBoard),
-          ]);
-          setMoveLog((items) => [
-            ...items.slice(-39),
-            { side: currentPlayer, controller: HUMAN, from: [fromRow, fromCol], to: [row, col] },
-          ]);
+          try {
+            const result = await applyPlayerMove({
+              boardState: boardToIntArray(board),
+              isRedTurn: currentPlayer === "red",
+              fromRow,
+              fromCol,
+              toRow: row,
+              toCol: col,
+              halfMoveClock,
+              history,
+            });
+            const nextBoard = BoardUtils.applyMove(board, fromRow, fromCol, row, col);
+            setBoard(nextBoard);
+            setCurrentPlayer(BoardUtils.getOpponent(currentPlayer));
+            setLastAIMove(null);
+            setSelectedPos(null);
+            setValidMoves([]);
+            setHalfMoveClock(result.half_move_clock);
+            setHistory(result.history);
+            setGameStatus(normalizeStatus(result.status));
+            setMoveLog((items) => [
+              ...items.slice(-39),
+              { side: currentPlayer, controller: HUMAN, from: [fromRow, fromCol], to: [row, col] },
+            ]);
+          } catch (error) {
+            setArenaError(error.response?.data?.detail || "Backend từ chối nước đi.");
+          }
           return;
         }
       }
 
       if (piece?.side === currentPlayer) {
-        setSelectedPos([row, col]);
-        setValidMoves(XiangqiRules.getLegalMoves(board, row, col, history));
+        try {
+          const result = await fetchLegalMoves({
+            boardState: boardToIntArray(board),
+            isRedTurn: currentPlayer === "red",
+            row,
+            col,
+            halfMoveClock,
+            history,
+          });
+          setSelectedPos([row, col]);
+          setValidMoves(result.moves);
+          setGameStatus(normalizeStatus(result.status));
+          setArenaError("");
+        } catch (error) {
+          setArenaError(error.response?.data?.detail || "Không lấy được nước đi hợp lệ.");
+        }
       } else {
         setSelectedPos(null);
         setValidMoves([]);
       }
     },
-    [board, currentController, currentPlayer, gameStatus.isCheckmate, history, isThinking, selectedPos, validMoves],
+    [board, currentController, currentPlayer, gameStatus.isCheckmate, halfMoveClock, history, isThinking, selectedPos, validMoves],
   );
 
   useEffect(() => {
@@ -192,31 +227,15 @@ export const useGame = () => {
 
         if (cancelled) return;
 
-        const isLegal = XiangqiRules.isLegalMove(
-          board,
-          aiMove.from_row,
-          aiMove.from_col,
-          aiMove.to_row,
-          aiMove.to_col,
-          currentPlayer,
-          history,
-        );
-        if (!isLegal) throw new Error(`${aiMove.ai_name} trả về nước đi không hợp lệ.`);
-
         await new Promise((resolve) => setTimeout(resolve, playbackDelay));
         if (cancelled) return;
 
         setBoard(
-          XiangqiRules.applyMove(
-            board,
-            aiMove.from_row,
-            aiMove.from_col,
-            aiMove.to_row,
-            aiMove.to_col,
-          ),
+          BoardUtils.applyMove(board, aiMove.from_row, aiMove.from_col, aiMove.to_row, aiMove.to_col),
         );
         setHalfMoveClock(aiMove.half_move_clock);
         setHistory(aiMove.history);
+        setGameStatus(normalizeStatus(aiMove.status));
         setLastAIMove({
           from: [aiMove.from_row, aiMove.from_col],
           to: [aiMove.to_row, aiMove.to_col],
@@ -241,7 +260,7 @@ export const useGame = () => {
             lastMs: aiMove.elapsed_ms,
           },
         }));
-        setCurrentPlayer(XiangqiRules.getOpponent(currentPlayer));
+        setCurrentPlayer(BoardUtils.getOpponent(currentPlayer));
       } catch (error) {
         if (!cancelled) {
           setArenaError(error.response?.data?.detail || error.message || "AI không thể thực hiện nước đi.");
@@ -283,6 +302,7 @@ export const useGame = () => {
     setMoveLog([]);
     setStats(emptyStats());
     setArenaError("");
+    setGameStatus(emptyGameStatus);
   }, []);
 
   const setController = useCallback((side, controller) => {

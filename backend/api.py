@@ -4,7 +4,7 @@ import time
 import json
 import subprocess
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -46,15 +46,61 @@ AI_VERSIONS = {
 WUKONG_BRIDGE = Path(__file__).parent / "references" / "wukong" / "bridge.js"
 
 
-class MoveRequest(BaseModel):
+class GameStateRequest(BaseModel):
     board_state: List[List[int]]
     is_red_turn: bool
-    ai_version: str = "python_current"
     half_move_clock: int = 0
     history: List[str] = Field(default_factory=list)
 
 
-class MoveResponse(BaseModel):
+class MoveRequest(GameStateRequest):
+    ai_version: str = "python_current"
+
+
+class LegalMovesRequest(GameStateRequest):
+    row: int
+    col: int
+
+
+class PlayerMoveRequest(GameStateRequest):
+    from_row: int
+    from_col: int
+    to_row: int
+    to_col: int
+
+
+class GameStatus(BaseModel):
+    checked_side: Optional[str] = None
+    is_checkmate: bool = False
+    winner: Optional[str] = None
+    checked_king_pos: Optional[List[int]] = None
+
+
+class StateResponse(BaseModel):
+    half_move_clock: int
+    history: List[str]
+    status: GameStatus
+
+
+class PlayerMoveResponse(StateResponse):
+    from_row: int
+    from_col: int
+    to_row: int
+    to_col: int
+
+
+class LegalMovesResponse(BaseModel):
+    moves: List[List[int]]
+    status: GameStatus
+
+
+class ValidateMoveResponse(BaseModel):
+    valid: bool
+    reason: Optional[str] = None
+    status: GameStatus
+
+
+class MoveResponse(PlayerMoveResponse):
     from_row: int
     from_col: int
     to_row: int
@@ -90,6 +136,47 @@ def get_ai_versions():
     """Return AI configurations that can be selected by the frontend."""
     versions = sorted(AI_VERSIONS.values(), key=lambda item: item["order"])
     return {"versions": versions, "default": "python_current"}
+
+
+def build_board(request):
+    board = Board()
+    board.board = request.board_state
+    board.half_move_clock = request.half_move_clock
+    board.history = request.history or [board.get_state_hash()]
+    return board
+
+
+def allowed_moves_for_piece(board, row, col):
+    return [
+        (to_row, to_col)
+        for to_row, to_col in MoveGenerator(board).generate_moves(row, col)
+        if not board.would_repeat_threefold(row, col, to_row, to_col)
+    ]
+
+
+def has_allowed_move(board, is_red_turn):
+    for row in range(board.BOARD_ROWS):
+        for col in range(board.BOARD_COLS):
+            piece = board.get_piece(row, col)
+            if piece == Board.EMPTY or (piece > 0) != is_red_turn:
+                continue
+            if allowed_moves_for_piece(board, row, col):
+                return True
+    return False
+
+
+def get_game_status(board, is_red_turn):
+    side = "red" if is_red_turn else "black"
+    opponent = "black" if is_red_turn else "red"
+    move_gen = MoveGenerator(board)
+    checked = move_gen.is_king_in_check(side)
+    no_moves = not has_allowed_move(board, is_red_turn)
+    return GameStatus(
+        checked_side=side if checked else None,
+        is_checkmate=no_moves,
+        winner=opponent if no_moves else None,
+        checked_king_pos=list(board.find_king(side)) if checked and board.find_king(side) else None,
+    )
 
 
 def board_to_fen(board_state, is_red_turn, half_move_clock):
@@ -161,7 +248,72 @@ def first_allowed_move(board, is_red_turn):
     return None
 
 
+@app.post("/legal-moves", response_model=LegalMovesResponse)
+def get_legal_moves(request: LegalMovesRequest):
+    board = build_board(request)
+    piece = board.get_piece(request.row, request.col)
+    if piece == Board.EMPTY or (piece > 0) != request.is_red_turn:
+        return LegalMovesResponse(
+            moves=[],
+            status=get_game_status(board, request.is_red_turn),
+        )
+
+    moves = allowed_moves_for_piece(board, request.row, request.col)
+    return LegalMovesResponse(
+        moves=[[row, col] for row, col in moves],
+        status=get_game_status(board, request.is_red_turn),
+    )
+
+
+@app.post("/apply-move", response_model=PlayerMoveResponse)
+def apply_player_move(request: PlayerMoveRequest):
+    board = build_board(request)
+    piece = board.get_piece(request.from_row, request.from_col)
+    if piece == Board.EMPTY or (piece > 0) != request.is_red_turn:
+        raise HTTPException(status_code=422, detail="Không đúng quân của bên đang đến lượt")
+
+    allowed_moves = allowed_moves_for_piece(board, request.from_row, request.from_col)
+    if (request.to_row, request.to_col) not in allowed_moves:
+        raise HTTPException(status_code=422, detail="Nước đi không hợp lệ hoặc tạo lặp lần ba")
+
+    board.move_piece(request.from_row, request.from_col, request.to_row, request.to_col)
+    return PlayerMoveResponse(
+        from_row=request.from_row,
+        from_col=request.from_col,
+        to_row=request.to_row,
+        to_col=request.to_col,
+        half_move_clock=board.half_move_clock,
+        history=board.history,
+        status=get_game_status(board, not request.is_red_turn),
+    )
+
+
+@app.post("/validate-move", response_model=ValidateMoveResponse)
+def validate_player_move(request: PlayerMoveRequest):
+    board = build_board(request)
+    piece = board.get_piece(request.from_row, request.from_col)
+    status = get_game_status(board, request.is_red_turn)
+    if piece == Board.EMPTY or (piece > 0) != request.is_red_turn:
+        return ValidateMoveResponse(
+            valid=False,
+            reason="Không đúng quân của bên đang đến lượt",
+            status=status,
+        )
+
+    valid = (request.to_row, request.to_col) in allowed_moves_for_piece(
+        board,
+        request.from_row,
+        request.from_col,
+    )
+    return ValidateMoveResponse(
+        valid=valid,
+        reason=None if valid else "Nước đi không hợp lệ hoặc tạo lặp lần ba",
+        status=status,
+    )
+
+
 @app.post("/move", response_model=MoveResponse)
+@app.post("/ai-move", response_model=MoveResponse)
 def get_ai_move(request: MoveRequest):
     config = AI_VERSIONS.get(request.ai_version)
     if config is None:
@@ -170,10 +322,7 @@ def get_ai_move(request: MoveRequest):
             detail=f"Không tồn tại phiên bản AI: {request.ai_version}",
         )
 
-    board = Board()
-    board.board = request.board_state
-    board.half_move_clock = request.half_move_clock
-    board.history = request.history or [board.get_state_hash()]
+    board = build_board(request)
 
     started_at = time.perf_counter()
     if config["runner"] == "wukong":
@@ -192,7 +341,12 @@ def get_ai_move(request: MoveRequest):
 
     from_row, from_col, to_row, to_col = best_move
     move_gen = MoveGenerator(board)
-    is_generated = (to_row, to_col) in move_gen.generate_moves(from_row, from_col)
+    piece = board.get_piece(from_row, from_col)
+    is_generated = (
+        piece != Board.EMPTY
+        and (piece > 0) == request.is_red_turn
+        and (to_row, to_col) in move_gen.generate_moves(from_row, from_col)
+    )
     if not is_generated or board.would_repeat_threefold(*best_move):
         if config["runner"] != "wukong":
             raise HTTPException(
@@ -221,6 +375,7 @@ def get_ai_move(request: MoveRequest):
         max_depth=config["max_depth"],
         time_limit=config["time_limit"],
         elapsed_ms=round(elapsed_ms, 2),
+        status=get_game_status(board, not request.is_red_turn),
     )
 
 
