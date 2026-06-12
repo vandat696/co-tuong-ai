@@ -36,14 +36,6 @@ const ArenaPanel = ({ game }) => {
 
   return (
     <aside className="arena-panel">
-      <div>
-        <p className="eyebrow">Đấu trường AI</p>
-        <h1>Quan sát và so sánh AI</h1>
-        <p className="arena-copy">
-          Chọn người chơi hoặc phiên bản AI cho từng bên. Chọn AI cho cả hai bên để
-          quan sát chúng tự đấu.
-        </p>
-      </div>
 
       {SIDE_ORDER.map((side) => {
         const version = selectedVersion(side);

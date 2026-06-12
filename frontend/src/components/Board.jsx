@@ -49,7 +49,30 @@ const Board = () => {
 
   return (
     <div className="board-container">
-      <div className="board-wrapper">
+      <div className="board-stage">
+        <aside className="game-info">
+          <div className="player-info">
+            <span className={`player ${currentPlayer}`}>
+              Lượt bên {currentPlayer === "red" ? "Đỏ" : "Đen"}
+            </span>
+            {gameStatus.isCheckmate ? (
+              <span className="status checkmate">
+                Chiếu hết - {gameStatus.winner === "red" ? "Đỏ" : "Đen"} thắng
+              </span>
+            ) : gameStatus.checkedSide ? (
+              <span className="status check">
+                Chiếu {gameStatus.checkedSide === "red" ? "Đỏ" : "Đen"}
+              </span>
+            ) : (
+              <span className="status normal">Ván đấu đang diễn ra</span>
+            )}
+          </div>
+          <button className="reset-btn" onClick={resetGame}>
+            Ván mới
+          </button>
+        </aside>
+
+        <div className="board-wrapper">
         {/* Thêm CSS để tạo hiệu ứng lướt mượt mà cho quân cờ */}
         <style>{`
           .piece-wrapper {
@@ -289,25 +312,6 @@ const Board = () => {
           })}
         </svg>
 
-        {/* Game info */}
-        <div className="game-info">
-          <div className="player-info">
-            <span className={`player ${currentPlayer}`}>
-              Lượt bên {currentPlayer === "red" ? "Đỏ" : "Đen"}
-            </span>
-            {gameStatus.isCheckmate ? (
-              <span className="status checkmate">
-                Chiếu hết - {gameStatus.winner === "red" ? "Đỏ" : "Đen"} thắng
-              </span>
-            ) : gameStatus.checkedSide ? (
-              <span className="status check">
-                Chiếu {gameStatus.checkedSide === "red" ? "Đỏ" : "Đen"}
-              </span>
-            ) : null}
-          </div>
-          <button className="reset-btn" onClick={resetGame}>
-            Ván mới
-          </button>
         </div>
       </div>
       <ArenaPanel game={game} />

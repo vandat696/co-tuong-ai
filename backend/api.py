@@ -36,7 +36,7 @@ AI_VERSIONS = {
         "description": "Engine WukongJS 1.0 dùng làm đối thủ tham chiếu cho AI Python.",
         "engine": "JavaScript / Node.js",
         "runner": "wukong",
-        "search": "Negamax, Alpha-Beta, đào sâu lặp, bảng chuyển vị, tìm kiếm tĩnh, Null Move, Futility, LMR và PVS.",
+        "search": "Negamax, Alpha-Beta, IDS, bảng chuyển vị, tìm kiếm tĩnh, Null Move, Futility, LMR và PVS.",
         "evaluation": "Giá trị quân cờ kết hợp bảng điểm vị trí (PST) lấy từ các tài liệu nghiên cứu cờ tướng.",
         "max_depth": 3,
         "time_limit": 0.0,
