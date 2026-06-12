@@ -1,5 +1,7 @@
-"""
-api.py - FastAPI server cho cờ tướng AI
+"""FastAPI server cho cờ tướng AI.
+
+Module này cung cấp các REST API endpoint để tương tác với AI Engine cờ tướng,
+nhận trạng thái bàn cờ từ client và trả về nước đi tính toán được.
 """
 
 
@@ -17,7 +19,14 @@ from src.eval import Evaluator
 # ===== Pydantic Models =====
 
 class MoveRequest(BaseModel):
-    """Request body cho /move endpoint"""
+    """Request body cho `/move` endpoint.
+    
+    Attributes:
+        board_state (List[List[int]]): Mảng 10x9 đại diện cho bàn cờ.
+        is_red_turn (bool): True nếu là lượt Đỏ, False nếu là lượt Đen.
+        half_move_clock (int): Số nửa nước đi (cho luật hòa 120 nước).
+        history (List[str]): Lịch sử các mã băm bàn cờ để kiểm tra lặp 3 lần.
+    """
     board_state: List[List[int]]  # Mảng 10x9
     is_red_turn: bool  # True = lượt Đỏ
     half_move_clock: int = 0
@@ -25,7 +34,17 @@ class MoveRequest(BaseModel):
 
 
 class MoveResponse(BaseModel):
-    """Response từ /move endpoint"""
+    """Response trả về từ `/move` endpoint.
+    
+    Attributes:
+        from_row (int): Hàng bắt đầu của nước đi.
+        from_col (int): Cột bắt đầu của nước đi.
+        to_row (int): Hàng đích đến của nước đi.
+        to_col (int): Cột đích đến của nước đi.
+        score (int): Điểm số đánh giá cho nước đi này.
+        half_move_clock (int): Giá trị clock sau khi đi (cập nhật).
+        history (List[str]): Lịch sử cập nhật sau khi thực hiện nước đi.
+    """
     from_row: int
     from_col: int
     to_row: int
@@ -55,30 +74,29 @@ app.add_middleware(
 
 @app.get("/")
 def health_check():
-    """
-    Endpoint kiểm tra API có hoạt động không
+    """Kiểm tra trạng thái hoạt động của API server.
     
-    Return:
-        dict: {"status": "ok"}
+    Returns:
+        dict: Một dictionary chứa trạng thái hệ thống, ví dụ `{"status": "ok"}`.
     """
     return {"status": "ok"}
 
 
 @app.post("/move", response_model=MoveResponse)
 def get_ai_move(request: MoveRequest):
-    """
-    Endpoint chính: AI tính nước đi tốt nhất
+    """Endpoint chính cho AI tính toán nước đi tốt nhất.
+    
+    Dựa trên cấu hình bàn cờ hiện tại, endpoint sẽ sinh ra nước đi tiếp theo
+    sử dụng thuật toán Minimax và Alpha-Beta pruning thông qua `AIEngine`.
     
     Args:
-        request (MoveRequest): 
-            - board_state: Mảng 10x9 của bàn cờ
-            - is_red_turn: True = lượt Đỏ
+        request (MoveRequest): Đối tượng chứa trạng thái hiện tại của bàn cờ và lượt đi.
     
-    Return:
-        MoveResponse: 
-            - from_row, from_col: Vị trí quân cần di chuyển
-            - to_row, to_col: Vị trí đích
-            - score: Điểm số đánh giá
+    Returns:
+        MoveResponse: Tọa độ nước đi tốt nhất, điểm số đánh giá, cùng trạng thái clock và history mới.
+        
+    Raises:
+        Exception: Nếu không tìm thấy nước đi nào hợp lệ.
     """
     # Tạo Board từ board_state
     board = Board()

@@ -1,5 +1,7 @@
-"""
-ai_engine.py - Minimax engine cho cờ tướng
+"""Module ai_engine.py.
+
+Cung cấp công cụ AI (AIEngine) áp dụng thuật toán Minimax kết hợp Alpha-Beta pruning, 
+Iterative Deepening và Quiescence Search để tìm nước đi tốt nhất trong cờ tướng.
 """
 
 import time
@@ -12,11 +14,12 @@ class AIEngine:
     """Lớp AI engine dùng Minimax"""
     
     def __init__(self, board, max_depth=4, time_limit=2.0):
-        """
+        """Khởi tạo AIEngine.
+
         Args:
-            board (Board): Instance bàn cờ
-            max_depth (int): Độ sâu tìm kiếm tối đa
-            time_limit (float): Giới hạn thời gian suy nghĩ (giây)
+            board (Board): Đối tượng Board đại diện cho bàn cờ hiện tại.
+            max_depth (int, optional): Độ sâu tìm kiếm tối đa của Minimax. Mặc định là 4.
+            time_limit (float, optional): Giới hạn thời gian tính toán tối đa tính bằng giây. Mặc định là 2.0.
         """
         self.board = board
         self.max_depth = max_depth
@@ -28,8 +31,17 @@ class AIEngine:
         self.evaluator = Evaluator(board)
     
     def get_best_move(self, is_red_turn):
-        """
-        Tìm nước đi tốt nhất với Iterative Deepening (Tính giờ)
+        """Tìm nước đi tốt nhất với Iterative Deepening có giới hạn thời gian.
+
+        Hàm sẽ lặp qua các độ sâu tăng dần (từ 1 đến `max_depth`) để tìm kiếm. 
+        Quá trình này sẽ dừng sớm nếu vượt quá `time_limit` đã cấu hình.
+
+        Args:
+            is_red_turn (bool): True nếu AI đang đóng vai trò cờ Đỏ, False nếu là cờ Đen.
+
+        Returns:
+            tuple: Trả về một tuple (from_row, from_col, to_row, to_col) đại diện cho nước đi tốt nhất,
+            hoặc None nếu không tìm được nước đi hợp lệ.
         """
         self.start_time = time.time()
         self.timeout = False
@@ -50,16 +62,20 @@ class AIEngine:
         return best_move_overall
 
     def _search_root(self, depth, is_red_turn, tt_best_move=None):
-        """
-        Khởi chạy tìm kiếm Minimax tại gốc cho một độ sâu cụ thể
+        """Khởi chạy tìm kiếm Minimax tại nút gốc cho một độ sâu cụ thể.
+        
+        Thực hiện sinh nước đi, sắp xếp thứ tự duyệt, và tiến hành gọi đệ quy thuật toán 
+        Minimax để tìm ra nước đi tốt nhất ở độ sâu này.
         
         Args:
-            depth (int): Độ sâu ở vòng lặp hiện tại
-            is_red_turn (bool): True nếu là lượt Đỏ, False là lượt Đen
-            tt_best_move (tuple): Nước đi tốt nhất từ độ sâu trước
-        
-        Return:
-            tuple: (best_row, best_col) hoặc None nếu không có nước đi
+            depth (int): Độ sâu tìm kiếm ở vòng lặp hiện tại.
+            is_red_turn (bool): True nếu đang là lượt của cờ Đỏ (tối đa hóa), False nếu lượt cờ Đen (tối thiểu hóa).
+            tt_best_move (tuple, optional): Nước đi tốt nhất thu được từ lần tìm kiếm ở độ sâu trước đó. 
+                Được sử dụng để tối ưu hóa việc sắp xếp nước đi.
+
+        Returns:
+            tuple: Trả về một tuple (from_row, from_col, to_row, to_col) đại diện cho nước đi được chọn 
+            ở độ sâu này, hoặc None nếu không có nước đi nào hoặc hết giờ.
         """
         # Sinh tất cả nước đi hợp lệ
         all_moves = []
@@ -145,9 +161,18 @@ class AIEngine:
         return best_move
 
     def _score_move(self, move, tt_move):
-        """
-        Đánh giá điểm sơ bộ của một nước đi để SẮP XẾP ƯU TIÊN (Move Ordering).
-        MVV-LVA: Most Valuable Victim - Least Valuable Attacker
+        """Đánh giá điểm số sơ bộ của một nước đi để sắp xếp ưu tiên (Move Ordering).
+
+        Nước đi ưu tiên cao hơn sẽ được duyệt sớm hơn. Sử dụng chiến thuật MVV-LVA
+        (Most Valuable Victim - Least Valuable Attacker), và ưu tiên tuyệt đối cho
+        nước đi tốt nhất được lưu trong Transposition Table.
+
+        Args:
+            move (tuple): Nước đi dạng (from_row, from_col, to_row, to_col).
+            tt_move (tuple): Nước đi tốt nhất từ Transposition Table.
+
+        Returns:
+            float: Điểm số sơ bộ của nước đi.
         """
         if move == tt_move:
             return 1000000  # Ưu tiên tuyệt đối nước đi tốt nhất từ Cache (TT Move)
@@ -163,9 +188,18 @@ class AIEngine:
         return 0  # Nước đi thường
 
     def quiescence_search(self, alpha, beta, is_red_maximizing):
-        """
-        Tìm kiếm tĩnh (Quiescence Search) để tránh Horizon Effect.
-        Chỉ duyệt các nước ĂN QUÂN cho đến khi trạng thái bớt biến động.
+        """Thực hiện tìm kiếm tĩnh (Quiescence Search) để giảm thiểu Horizon Effect.
+
+        Thuật toán chỉ xem xét và duyệt tiếp các nước ăn quân cho đến khi đạt được
+        một trạng thái tương đối ổn định (không còn khả năng thay đổi điểm số một cách đột ngột).
+
+        Args:
+            alpha (float): Giá trị tốt nhất cờ Đỏ (người chơi MAX) đã đảm bảo có được.
+            beta (float): Giá trị tốt nhất cờ Đen (người chơi MIN) đã đảm bảo có được.
+            is_red_maximizing (bool): True nếu đang tối đa hóa cho cờ Đỏ, False nếu tối thiểu hóa cho cờ Đen.
+
+        Returns:
+            float: Điểm số tĩnh ước lượng tại nút lá sau khi ổn định.
         """
         # 1. Kiểm tra hết giờ
         if time.time() - self.start_time > self.time_limit:
@@ -250,17 +284,18 @@ class AIEngine:
             return beta
     
     def minimax(self, depth, is_red_maximizing, alpha=-float('inf'), beta=float('inf')):
-        """
-        Thuật toán Minimax
+        """Thực thi thuật toán Minimax kết hợp cắt tỉa Alpha-Beta và Transposition Table.
         
         Args:
-            depth (int): Độ sâu hiện tại (0 = đánh giá)
-            is_red_maximizing (bool): True = AI Đỏ (muốn MAX), False = AI Đen (muốn MIN)
-            alpha (float): Giá trị tốt nhất cờ Đỏ (MAX) có thể đảm bảo
-            beta (float): Giá trị tốt nhất cờ Đen (MIN) có thể đảm bảo
+            depth (int): Độ sâu tìm kiếm hiện tại (số nước đi dự đoán về phía trước). 
+                Khi depth = 0, thuật toán sẽ gọi hàm đánh giá tĩnh (Quiescence Search).
+            is_red_maximizing (bool): True nếu lượt hiện tại là AI đóng vai cờ Đỏ (cố gắng làm điểm MAX), 
+                False nếu là AI cờ Đen (cố gắng làm điểm MIN).
+            alpha (float, optional): Giới hạn dưới (của cờ Đỏ). Mặc định là -infinity.
+            beta (float, optional): Giới hạn trên (của cờ Đen). Mặc định là infinity.
         
-        Return:
-            int: Điểm số tốt nhất
+        Returns:
+            float: Điểm số tốt nhất tại nút hiện tại.
         """
         # ===== Kiểm tra thời gian =====
         if time.time() - self.start_time > self.time_limit:

@@ -1,9 +1,10 @@
-"""
-board.py - Biểu diễn bàn cờ tướng 10x9 và xử lý trạng thái cơ bản
+"""Module board.py.
+
+Biểu diễn bàn cờ tướng 10x9, các hằng số quân cờ, và xử lý trạng thái cơ bản.
 """
 
 class Board:
-    """Lớp đại diện cho bàn cờ tướng"""
+    """Lớp đại diện cho bàn cờ tướng."""
     
     # Hằng số định nghĩa quân cờ
     EMPTY = 0
@@ -38,15 +39,18 @@ class Board:
         self.history = [self.get_state_hash()]
         
     def get_state_hash(self):
-        """Sinh chuỗi đại diện cho bàn cờ hiện tại"""
+        """Sinh chuỗi băm đại diện cho trạng thái bàn cờ hiện tại.
+
+        Returns:
+            str: Chuỗi string của ma trận bàn cờ.
+        """
         return str(self.board)
     
     def _init_board(self):
-        """
-        Khởi tạo bàn cờ ở trạng thái ban đầu
+        """Khởi tạo bàn cờ ở trạng thái ban đầu.
         
-        Return:
-            list: Mảng 10x9 biểu diễn bàn cờ
+        Returns:
+            list: Mảng 2 chiều 10x9 biểu diễn bàn cờ với các quân ở vị trí xuất phát.
         """
         # TODO: Tạo mảng 10x9, điền các quân vào vị trí ban đầu
         # Gợi ý: Sử dụng [[EMPTY] * 9 for _ in range(10)] để tạo mảng trống
@@ -72,63 +76,78 @@ class Board:
         return board
     
     def get_piece(self, row, col):
-        """
-        Lấy quân tại vị trí (row, col)
+        """Lấy quân cờ tại vị trí (row, col).
         
         Args:
-            row (int): Hàng (0-9)
-            col (int): Cột (0-8)
+            row (int): Hàng (0-9).
+            col (int): Cột (0-8).
         
-        Return:
-            int: Mã quân (hoặc 0 nếu ô trống)
+        Returns:
+            int: Mã quân cờ (hoặc 0 nếu ô trống), None nếu ngoài bàn cờ.
         """
         if self._is_valid_pos(row, col):
             return self.board[row][col]
         return None
     
     def set_piece(self, row, col, piece):
-        """
-        Đặt quân tại vị trí (row, col)
+        """Đặt quân cờ tại vị trí (row, col).
         
         Args:
-            row (int): Hàng
-            col (int): Cột
-            piece (int): Mã quân
+            row (int): Hàng.
+            col (int): Cột.
+            piece (int): Mã quân cờ.
         """
         if self._is_valid_pos(row, col):
             self.board[row][col] = piece
     
     def _is_valid_pos(self, row, col):
-        """
-        Kiểm tra vị trí có hợp lệ không
+        """Kiểm tra vị trí có nằm trong bàn cờ không.
         
         Args:
-            row (int): Hàng
-            col (int): Cột
+            row (int): Hàng.
+            col (int): Cột.
         
-        Return:
-            bool: True nếu hợp lệ, False nếu không
+        Returns:
+            bool: True nếu hợp lệ, False nếu nằm ngoài bàn.
         """
         return 0 <= row < self.BOARD_ROWS and 0 <= col < self.BOARD_COLS
     
     def is_red(self, piece):
-        """Kiểm tra quân có phải Đỏ không (số dương)"""
+        """Kiểm tra quân có phải Đỏ không (số dương).
+
+        Args:
+            piece (int): Mã quân cờ.
+
+        Returns:
+            bool: True nếu là quân Đỏ.
+        """
         return piece > 0
     
     def is_black(self, piece):
-        """Kiểm tra quân có phải Đen không (số âm)"""
+        """Kiểm tra quân có phải Đen không (số âm).
+
+        Args:
+            piece (int): Mã quân cờ.
+
+        Returns:
+            bool: True nếu là quân Đen.
+        """
         return piece < 0
     
     def move_piece(self, from_row, from_col, to_row, to_col):
-        """
-        Di chuyển quân từ (from_row, from_col) đến (to_row, to_col)
+        """Di chuyển quân cờ từ (from_row, from_col) đến (to_row, to_col).
+        
+        Thực hiện di chuyển, kiểm tra tính hợp lệ của tọa độ và cập nhật history,
+        half-move clock.
         
         Args:
-            from_row, from_col: Vị trí quân hiện tại
-            to_row, to_col: Vị trí mới
+            from_row (int): Hàng quân hiện tại.
+            from_col (int): Cột quân hiện tại.
+            to_row (int): Hàng đích.
+            to_col (int): Cột đích.
         
-        Return:
-            bool: True nếu di chuyển thành công, False nếu không hợp lệ
+        Returns:
+            bool: True nếu di chuyển thành công, False nếu nước đi không hợp lệ (ví dụ ô nguồn trống).
         """
         # TODO: Kiểm tra cả hai vị trí có hợp lệ không, rồi di chuyển
         # Cấu trúc: 
@@ -163,8 +182,18 @@ class Board:
         return True
         
     def undo_move(self, from_row, from_col, to_row, to_col, piece, captured_piece, old_clock):
-        """
-        Hoàn tác một nước đi (phục vụ cho thuật toán AI)
+        """Hoàn tác một nước đi.
+        
+        Được sử dụng chủ yếu trong thuật toán Minimax để khôi phục trạng thái bàn cờ.
+        
+        Args:
+            from_row (int): Hàng xuất phát của nước đi cần hoàn tác.
+            from_col (int): Cột xuất phát.
+            to_row (int): Hàng đích.
+            to_col (int): Cột đích.
+            piece (int): Quân cờ đã di chuyển.
+            captured_piece (int): Quân cờ đã bị ăn (nếu có, hoặc 0 nếu không).
+            old_clock (int): Giá trị half-move clock trước khi di chuyển.
         """
         self.board[from_row][from_col] = piece
         self.board[to_row][to_col] = captured_piece
@@ -173,14 +202,15 @@ class Board:
             self.history.pop()
     
     def find_king(self, color):
-        """
-        Tìm vị trí Tướng của một bên
+        """Tìm vị trí Tướng của một bên.
+        
+        Chỉ tìm kiếm trong phạm vi Cung (3x3) để tối ưu hiệu năng.
         
         Args:
-            color (str): 'red' hoặc 'black'
+            color (str): 'red' hoặc 'black'.
         
-        Return:
-            tuple: (row, col) hoặc None nếu không tìm thấy
+        Returns:
+            tuple: (row, col) tọa độ của Tướng, hoặc None nếu không tìm thấy (Tướng đã bị ăn).
         """
         # Tối ưu: Chỉ quét trong khu vực Cung (3x3) thay vì toàn bộ bàn cờ
         if color == "red":
@@ -198,11 +228,12 @@ class Board:
         # Gợi ý: Dùng RED_KING, BLACK_KING để tìm
     
     def is_game_over(self):
-        """
-        Kiểm tra game có kết thúc không (một bên mất Tướng)
+        """Kiểm tra xem trò chơi đã kết thúc chưa.
         
-        Return:
-            str: 'red_win', 'black_win', hoặc None nếu game chưa kết thúc
+        Dựa trên việc kiểm tra xem có bên nào bị mất Tướng hay không.
+        
+        Returns:
+            str: 'red_win' nếu Đỏ thắng, 'black_win' nếu Đen thắng, hoặc None nếu game chưa kết thúc.
         """
         # TODO: Kiểm tra xem Tướng nào bị mất
         red_king = self.find_king("red")

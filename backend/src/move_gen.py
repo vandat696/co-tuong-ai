@@ -1,5 +1,6 @@
-"""
-move_gen.py - Sinh nước đi hợp lệ cho từng loại quân
+"""Module move_gen.py.
+
+Cung cấp lớp MoveGenerator dùng để sinh nước đi hợp lệ cho từng loại quân cờ.
 """
 
 from src.board import Board
@@ -16,10 +17,18 @@ class MoveGenerator:
     # ============= HÀM CHÍNH =============
     
     def generate_moves(self, row, col, captures_only=False):
-        """
-        Sinh tất cả nước đi hợp lệ cho quân tại (row, col)
-        (Đã bao gồm Lọc luật Chống Tướng)
-        Args: captures_only (bool): Nếu True, chỉ trả về các nước ĂN QUÂN
+        """Sinh tất cả nước đi hợp lệ cho quân cờ tại tọa độ (row, col).
+        
+        Đã bao gồm quá trình lọc luật Chống Tướng (hai tướng không được nhìn mặt nhau).
+        
+        Args:
+            row (int): Hàng.
+            col (int): Cột.
+            captures_only (bool, optional): Nếu True, chỉ trả về các nước đi ăn quân. 
+                Được sử dụng trong Quiescence Search. Mặc định là False.
+                
+        Returns:
+            list: Danh sách các nước đi hợp lệ dưới dạng tuple `[(to_row, to_col), ...]`.
         """
         piece = self.board.get_piece(row, col)
         
@@ -87,26 +96,25 @@ class MoveGenerator:
             return 7 <= row <= 9 and 3 <= col <= 5
     
     def _is_river(self, row):
-        """
-        Kiểm tra hàng có nằm ở sông không
-        Sông nằm giữa hàng 4 và 5
+        """Kiểm tra hàng có nằm ở sông không.
+
         Args:
-            row: Hàng cần kiểm tra
-        Return:
-            bool: True nếu nằm ở sông
+            row (int): Hàng cần kiểm tra.
+
+        Returns:
+            bool: True nếu nằm ở sông.
         """
         return row == 4 or row == 5
     
     def _is_enemy(self, piece1, piece2):
-        """
-        Kiểm tra 2 quân có phải địch nhau không
+        """Kiểm tra 2 quân có phải địch nhau không.
         
         Args:
-            piece1 (int): Quân 1
-            piece2 (int): Quân 2
+            piece1 (int): Quân 1.
+            piece2 (int): Quân 2.
         
-        Return:
-            bool: True nếu chúng là kẻ thù
+        Returns:
+            bool: True nếu chúng là kẻ thù.
         """
         return piece1 * piece2 < 0
     
@@ -139,7 +147,11 @@ class MoveGenerator:
         return False
     
     def _is_kings_facing(self):
-        """Kiểm tra xem 2 Tướng có đang đối mặt mà không có quân cản không (Luật Chống Tướng)"""
+        """Kiểm tra xem 2 Tướng có đang đối mặt mà không có quân cản không (Luật Chống Tướng).
+
+        Returns:
+            bool: True nếu hai tướng đang đối mặt trực diện.
+        """
         red_king = self.board.find_king('red')
         black_king = self.board.find_king('black')
         

@@ -1,5 +1,6 @@
-"""
-eval.py - Hàm đánh giá thế cờ (Evaluation function) với Tapered Evaluation
+"""Module eval.py.
+
+Hàm đánh giá thế cờ (Evaluation function) sử dụng kỹ thuật Tapered Evaluation.
 """
 
 from src.board import Board
@@ -131,15 +132,16 @@ class Evaluator:
     ]
 
     # Ở tàn cuộc, Mã và Xe ưu tiên ở các vị trí tấn công và trung tâm tương tự MG nhưng trọng số có thể thay đổi
-    # Để giữ code ngắn gọn và hiệu quả, ta có thể dùng chung PST MG cho Mã, Pháo, Xe
+    # Ta có thể dùng chung PST MG cho Mã, Pháo, Xe
     EG_HORSE_PST = MG_HORSE_PST
     EG_CANNON_PST = MG_CANNON_PST
     EG_CHARIOT_PST = MG_CHARIOT_PST
 
     def __init__(self, board):
-        """
+        """Khởi tạo Evaluator.
+
         Args:
-            board (Board): Instance bàn cờ
+            board (Board): Đối tượng Board đại diện cho bàn cờ hiện tại.
         """
         self.board = board
         self.mg_score = 0
@@ -148,7 +150,7 @@ class Evaluator:
         self._calculate_initial_score()
         
     def _calculate_initial_score(self):
-        """Tính điểm và phase ban đầu bằng cách quét cả bàn cờ"""
+        """Tính điểm và phase ban đầu bằng cách quét toàn bộ bàn cờ."""
         self.mg_score = 0
         self.eg_score = 0
         self.phase = 0
@@ -165,9 +167,15 @@ class Evaluator:
                         self.phase += self.PHASE_WEIGHTS[abs(piece)]
                         
     def get_piece_score(self, piece, row, col):
-        """
-        Tính điểm MG và EG của một quân cờ tại một vị trí cụ thể
-        Return: (mg_score, eg_score)
+        """Tính điểm khai cuộc (MG) và tàn cuộc (EG) của một quân cờ tại vị trí cụ thể.
+        
+        Args:
+            piece (int): Mã quân cờ.
+            row (int): Hàng hiện tại của quân cờ.
+            col (int): Cột hiện tại của quân cờ.
+            
+        Returns:
+            tuple: Trả về một tuple `(mg_score, eg_score)`.
         """
         if piece == Board.EMPTY:
             return 0, 0
@@ -207,7 +215,16 @@ class Evaluator:
             return -final_mg, -final_eg
             
     def update_move(self, from_row, from_col, to_row, to_col, piece, captured_piece):
-        """Cập nhật điểm tĩnh khi thực hiện một nước đi (O(1))"""
+        """Cập nhật điểm tĩnh khi thực hiện một nước đi (độ phức tạp O(1)).
+        
+        Args:
+            from_row (int): Hàng xuất phát.
+            from_col (int): Cột xuất phát.
+            to_row (int): Hàng đích.
+            to_col (int): Cột đích.
+            piece (int): Quân cờ di chuyển.
+            captured_piece (int): Quân cờ bị ăn (hoặc Board.EMPTY).
+        """
         # Bỏ điểm của quân cờ ở vị trí cũ
         mg_old, eg_old = self.get_piece_score(piece, from_row, from_col)
         self.mg_score -= mg_old
@@ -227,7 +244,16 @@ class Evaluator:
         self.eg_score += eg_new
         
     def undo_update_move(self, from_row, from_col, to_row, to_col, piece, captured_piece):
-        """Hoàn tác điểm tĩnh khi undo một nước đi (O(1))"""
+        """Hoàn tác điểm tĩnh khi undo một nước đi (độ phức tạp O(1)).
+        
+        Args:
+            from_row (int): Hàng xuất phát.
+            from_col (int): Cột xuất phát.
+            to_row (int): Hàng đích.
+            to_col (int): Cột đích.
+            piece (int): Quân cờ đã di chuyển.
+            captured_piece (int): Quân cờ đã bị ăn (hoặc Board.EMPTY).
+        """
         # Bỏ điểm của quân cờ ở vị trí mới
         mg_new, eg_new = self.get_piece_score(piece, to_row, to_col)
         self.mg_score -= mg_new
@@ -247,11 +273,13 @@ class Evaluator:
         self.eg_score += eg_old
     
     def evaluate(self):
-        """
-        Đánh giá trạng thái hiện tại của bàn cờ (O(1)) kết hợp nội suy Khai - Tàn cuộc
+        """Đánh giá trạng thái hiện tại của bàn cờ (độ phức tạp O(1)).
         
-        Return:
-            int: Điểm số (dương = Đỏ tốt, âm = Đen tốt)
+        Sử dụng nội suy tuyến tính (Linear Interpolation) giữa điểm Khai/Trung cuộc
+        (MG) và Tàn cuộc (EG) dựa trên phase hiện tại.
+        
+        Returns:
+            int: Điểm số (giá trị dương = Đỏ có lợi thế, âm = Đen có lợi thế).
         """
         # Đảm bảo phase nằm trong khoảng [0, 16]
         phase_p = max(0, min(16, self.phase))
@@ -262,7 +290,16 @@ class Evaluator:
         return (self.mg_score * phase_p + self.eg_score * (16 - phase_p)) // 16
         
     def get_piece_value(self, piece):
-        """Hàm cũ giữ lại để tương thích với _score_move trong ai_engine"""
+        """Lấy giá trị cơ bản của một quân cờ (dùng cho Move Ordering).
+        
+        Hàm được giữ lại để tương thích với hàm `_score_move` trong `ai_engine`.
+        
+        Args:
+            piece (int): Mã quân cờ.
+            
+        Returns:
+            int: Giá trị tĩnh của quân cờ.
+        """
         if piece == Board.EMPTY:
             return 0
         return self.MG_PIECE_VALUES.get(abs(piece), 0)
