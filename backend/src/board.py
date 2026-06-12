@@ -2,6 +2,9 @@
 board.py - Biểu diễn bàn cờ tướng 10x9 và xử lý trạng thái cơ bản
 """
 
+import json
+
+
 class Board:
     """Lớp đại diện cho bàn cờ tướng"""
     
@@ -39,7 +42,18 @@ class Board:
         
     def get_state_hash(self):
         """Sinh chuỗi đại diện cho bàn cờ hiện tại"""
-        return str(self.board)
+        return json.dumps(self.board, separators=(",", ":"))
+
+    def would_repeat_threefold(self, from_row, from_col, to_row, to_col):
+        """Kiểm tra nước đi có tạo lại cùng thế cờ lần thứ ba hay không."""
+        piece = self.board[from_row][from_col]
+        captured_piece = self.board[to_row][to_col]
+        self.board[to_row][to_col] = piece
+        self.board[from_row][from_col] = self.EMPTY
+        next_hash = self.get_state_hash()
+        self.board[from_row][from_col] = piece
+        self.board[to_row][to_col] = captured_piece
+        return self.history.count(next_hash) >= 2
     
     def _init_board(self):
         """

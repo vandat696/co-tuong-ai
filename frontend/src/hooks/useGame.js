@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchAIMove, fetchAIVersions } from "../api";
 import { XiangqiRules } from "../game/XiangqiRules";
+import { BoardUtils } from "../game/BoardUtils";
 
 const HUMAN = "human";
 
@@ -111,8 +112,8 @@ export const useGame = () => {
   }, []);
 
   const gameStatus = useMemo(
-    () => XiangqiRules.getGameStatus(board, currentPlayer),
-    [board, currentPlayer],
+    () => XiangqiRules.getGameStatus(board, currentPlayer, history),
+    [board, currentPlayer, history],
   );
 
   const currentController = controllers[currentPlayer];
@@ -133,13 +134,17 @@ export const useGame = () => {
         const canMove = validMoves.some(([r, c]) => r === row && c === col);
 
         if (canMove) {
-          setBoard(XiangqiRules.applyMove(board, fromRow, fromCol, row, col));
+          const nextBoard = XiangqiRules.applyMove(board, fromRow, fromCol, row, col);
+          setBoard(nextBoard);
           setCurrentPlayer(XiangqiRules.getOpponent(currentPlayer));
           setLastAIMove(null);
           setSelectedPos(null);
           setValidMoves([]);
           setHalfMoveClock(0);
-          setHistory([]);
+          setHistory((states) => [
+            ...(states.length ? states : [BoardUtils.stateHash(board)]),
+            BoardUtils.stateHash(nextBoard),
+          ]);
           setMoveLog((items) => [
             ...items.slice(-39),
             { side: currentPlayer, controller: HUMAN, from: [fromRow, fromCol], to: [row, col] },
@@ -150,13 +155,13 @@ export const useGame = () => {
 
       if (piece?.side === currentPlayer) {
         setSelectedPos([row, col]);
-        setValidMoves(XiangqiRules.getLegalMoves(board, row, col));
+        setValidMoves(XiangqiRules.getLegalMoves(board, row, col, history));
       } else {
         setSelectedPos(null);
         setValidMoves([]);
       }
     },
-    [board, currentController, currentPlayer, gameStatus.isCheckmate, isThinking, selectedPos, validMoves],
+    [board, currentController, currentPlayer, gameStatus.isCheckmate, history, isThinking, selectedPos, validMoves],
   );
 
   useEffect(() => {
@@ -194,6 +199,7 @@ export const useGame = () => {
           aiMove.to_row,
           aiMove.to_col,
           currentPlayer,
+          history,
         );
         if (!isLegal) throw new Error(`${aiMove.ai_name} trả về nước đi không hợp lệ.`);
 

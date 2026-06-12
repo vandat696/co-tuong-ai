@@ -26,6 +26,9 @@ class AIEngine:
         self.transposition_table = {}  # Bộ nhớ đệm Transposition Table
         self.move_gen = MoveGenerator(board)
         self.evaluator = Evaluator(board)
+
+    def _is_allowed_move(self, move):
+        return not self.board.would_repeat_threefold(*move)
     
     def get_best_move(self, is_red_turn):
         """
@@ -79,7 +82,9 @@ class AIEngine:
                 # Sinh nước đi cho quân này
                 moves = self.move_gen.generate_moves(row, col)
                 for to_row, to_col in moves:
-                    all_moves.append((row, col, to_row, to_col))
+                    move = (row, col, to_row, to_col)
+                    if self._is_allowed_move(move):
+                        all_moves.append(move)
         
         # Nếu không có nước đi
         if not all_moves:
@@ -200,7 +205,9 @@ class AIEngine:
                 # Yêu cầu MoveGenerator CHỈ trả về các nước ăn quân để tiết kiệm hiệu năng
                 moves = self.move_gen.generate_moves(row, col, captures_only=True)
                 for to_row, to_col in moves:
-                    capture_moves.append((row, col, to_row, to_col))
+                    move = (row, col, to_row, to_col)
+                    if self._is_allowed_move(move):
+                        capture_moves.append(move)
                         
         # Nếu không có nước ăn quân nào, trả về điểm Stand Pat
         if not capture_moves:
@@ -334,7 +341,9 @@ class AIEngine:
                 # Sinh nước đi
                 moves = self.move_gen.generate_moves(row, col)
                 for to_row, to_col in moves:
-                    all_moves.append((row, col, to_row, to_col))
+                    move = (row, col, to_row, to_col)
+                    if self._is_allowed_move(move):
+                        all_moves.append(move)
         
         # Nếu không có nước đi (Stalemate -> Thua)
         if not all_moves:

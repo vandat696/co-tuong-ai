@@ -2,28 +2,31 @@ import { BoardUtils } from "./BoardUtils";
 import { PieceMoveGenerator } from "./PieceMoveGenerator";
 
 export class XiangqiRules {
-  static getLegalMoves(board, row, col) {
+  static getLegalMoves(board, row, col, history = []) {
     const piece = BoardUtils.getPiece(board, row, col);
     if (!piece) return [];
 
     return PieceMoveGenerator.getPseudoMoves(board, row, col, piece).filter(([toRow, toCol]) => {
       const nextBoard = BoardUtils.applyMove(board, row, col, toRow, toCol);
-      return !this.isKingInCheck(nextBoard, piece.side);
+      const repeatsForThirdTime = history.filter(
+        (state) => state === BoardUtils.stateHash(nextBoard),
+      ).length >= 2;
+      return !this.isKingInCheck(nextBoard, piece.side) && !repeatsForThirdTime;
     });
   }
 
-  static isLegalMove(board, fromRow, fromCol, toRow, toCol, side) {
+  static isLegalMove(board, fromRow, fromCol, toRow, toCol, side, history = []) {
     const piece = BoardUtils.getPiece(board, fromRow, fromCol);
     if (!piece || piece.side !== side) return false;
 
-    return this.getLegalMoves(board, fromRow, fromCol).some(
+    return this.getLegalMoves(board, fromRow, fromCol, history).some(
       ([row, col]) => row === toRow && col === toCol,
     );
   }
 
-  static getGameStatus(board, currentPlayer) {
+  static getGameStatus(board, currentPlayer, history = []) {
     const checkedSide = this.isKingInCheck(board, currentPlayer) ? currentPlayer : null;
-    const isCheckmate = Boolean(checkedSide) && !this.hasLegalMove(board, currentPlayer);
+    const isCheckmate = Boolean(checkedSide) && !this.hasLegalMove(board, currentPlayer, history);
 
     return {
       checkedSide,
@@ -33,13 +36,13 @@ export class XiangqiRules {
     };
   }
 
-  static getFallbackMove(board, side) {
+  static getFallbackMove(board, side, history = []) {
     for (let row = 0; row < BoardUtils.ROWS; row++) {
       for (let col = 0; col < BoardUtils.COLS; col++) {
         const piece = BoardUtils.getPiece(board, row, col);
         if (!piece || piece.side !== side) continue;
 
-        const legalMoves = this.getLegalMoves(board, row, col);
+        const legalMoves = this.getLegalMoves(board, row, col, history);
         if (legalMoves.length === 0) continue;
 
         const [toRow, toCol] = legalMoves[0];
@@ -56,12 +59,12 @@ export class XiangqiRules {
     return null;
   }
 
-  static hasLegalMove(board, side) {
+  static hasLegalMove(board, side, history = []) {
     for (let row = 0; row < BoardUtils.ROWS; row++) {
       for (let col = 0; col < BoardUtils.COLS; col++) {
         const piece = BoardUtils.getPiece(board, row, col);
 
-        if (piece?.side === side && this.getLegalMoves(board, row, col).length > 0) {
+        if (piece?.side === side && this.getLegalMoves(board, row, col, history).length > 0) {
           return true;
         }
       }

@@ -146,6 +146,21 @@ def get_wukong_move(request, config):
     )
 
 
+def first_allowed_move(board, is_red_turn):
+    """Fallback for engines that do not understand the local repetition ban."""
+    move_gen = MoveGenerator(board)
+    for row in range(board.BOARD_ROWS):
+        for col in range(board.BOARD_COLS):
+            piece = board.get_piece(row, col)
+            if piece == Board.EMPTY or (piece > 0) != is_red_turn:
+                continue
+            for to_row, to_col in move_gen.generate_moves(row, col):
+                move = (row, col, to_row, to_col)
+                if not board.would_repeat_threefold(*move):
+                    return move
+    return None
+
+
 @app.post("/move", response_model=MoveResponse)
 def get_ai_move(request: MoveRequest):
     config = AI_VERSIONS.get(request.ai_version)
@@ -177,11 +192,18 @@ def get_ai_move(request: MoveRequest):
 
     from_row, from_col, to_row, to_col = best_move
     move_gen = MoveGenerator(board)
-    if (to_row, to_col) not in move_gen.generate_moves(from_row, from_col):
-        raise HTTPException(
-            status_code=500,
-            detail=f"AI trả về nước đi không hợp lệ: {best_move}",
-        )
+    is_generated = (to_row, to_col) in move_gen.generate_moves(from_row, from_col)
+    if not is_generated or board.would_repeat_threefold(*best_move):
+        if config["runner"] != "wukong":
+            raise HTTPException(
+                status_code=500,
+                detail=f"AI trả về nước đi không hợp lệ hoặc tạo lặp lần ba: {best_move}",
+            )
+
+        best_move = first_allowed_move(board, request.is_red_turn)
+        if best_move is None:
+            raise HTTPException(status_code=422, detail="AI không còn nước đi không lặp hợp lệ")
+        from_row, from_col, to_row, to_col = best_move
 
     board.move_piece(from_row, from_col, to_row, to_col)
     score = Evaluator(board).evaluate()

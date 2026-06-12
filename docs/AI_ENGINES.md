@@ -113,7 +113,7 @@ Nếu dừng tìm kiếm ngay ở một thế đang có chuỗi ăn quân, đi�
 - Một bên mất Tướng: thắng hoặc thua.
 - Không còn nước đi: bên đến lượt thua.
 - Bộ đếm không bắt quân/không đi Tốt đạt 120 nửa nước: hòa.
-- Một trạng thái lặp lại ba lần: hòa.
+- Nước đi tạo lại cùng một thế cờ lần thứ ba bị cấm; bên đi phải chọn nước khác.
 - Hết giới hạn thời gian: dừng vòng tìm kiếm hiện tại.
 
 ### Hàm đánh giá Tapered Evaluation
