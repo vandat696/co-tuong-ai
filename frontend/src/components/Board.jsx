@@ -1,10 +1,12 @@
 import React from "react";
 import { useGame } from "../hooks/useGame";
 import Piece from "./Piece";
+import ArenaPanel from "./ArenaPanel";
 import "./Board.css";
 
 const Board = () => {
   // Game state management
+  const game = useGame();
   const {
     board,
     selectedPos,
@@ -14,7 +16,7 @@ const Board = () => {
     gameStatus,
     handlePieceClick,
     resetGame,
-  } = useGame();
+  } = game;
 
   // Kích thước ô (pixels giữa các giao điểm)
   const CELL_SIZE = 60;
@@ -308,6 +310,7 @@ const Board = () => {
           </button>
         </div>
       </div>
+      <ArenaPanel game={game} />
     </div>
   );
 };

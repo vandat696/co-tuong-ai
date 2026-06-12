@@ -1,31 +1,63 @@
-"""
-api.py - FastAPI server cho cờ tướng AI
-"""
+"""FastAPI server for the Xiangqi AI."""
 
+import time
+import json
+import subprocess
+from pathlib import Path
+from typing import List
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Optional
+from pydantic import BaseModel, Field
 
-from src.board import Board
-from src.move_gen import MoveGenerator
 from src.ai_engine import AIEngine
+from src.board import Board
 from src.eval import Evaluator
+from src.move_gen import MoveGenerator
 
 
-# ===== Pydantic Models =====
+AI_VERSIONS = {
+    "v1_initial": {
+        "id": "v1_initial",
+        "order": 1,
+        "name": "V1 - AI ban dau",
+        "description": "Mo phong moc khoi dau bang engine Python voi gioi han tim kiem nho.",
+        "engine": "python",
+        "max_depth": 2,
+        "time_limit": 0.15,
+    },
+    "v2_current": {
+        "id": "v2_current",
+        "order": 2,
+        "name": "V2 - AI Python hien tai",
+        "description": "Ban da cai tien voi Alpha-Beta, Iterative Deepening, TT va Quiescence Search.",
+        "engine": "python",
+        "max_depth": 5,
+        "time_limit": 0.5,
+    },
+    "v3_wukong": {
+        "id": "v3_wukong",
+        "order": 3,
+        "name": "V3 - WukongJS tham khao",
+        "description": "Engine WukongJS 1.0 dung de quan sat va doi chieu voi AI Python.",
+        "engine": "wukong",
+        "max_depth": 3,
+        "time_limit": 0.0,
+    },
+}
+
+WUKONG_BRIDGE = Path(__file__).parent / "references" / "wukong" / "bridge.js"
+
 
 class MoveRequest(BaseModel):
-    """Request body cho /move endpoint"""
-    board_state: List[List[int]]  # Mảng 10x9
-    is_red_turn: bool  # True = lượt Đỏ
+    board_state: List[List[int]]
+    is_red_turn: bool
+    ai_version: str = "v2_current"
     half_move_clock: int = 0
-    history: List[str] = []
+    history: List[str] = Field(default_factory=list)
 
 
 class MoveResponse(BaseModel):
-    """Response từ /move endpoint"""
     from_row: int
     from_col: int
     to_row: int
@@ -33,78 +65,130 @@ class MoveResponse(BaseModel):
     score: int
     half_move_clock: int
     history: List[str]
+    ai_version: str
+    ai_name: str
+    max_depth: int
+    time_limit: float
+    elapsed_ms: float
 
 
-# ===== FastAPI App =====
+app = FastAPI(title="Xiangqi AI", version="1.1.0")
 
-app = FastAPI(title="Xiangqi AI", version="1.0.0")
-
-# TODO: Thêm CORS middleware để frontend có thể gọi API
-# Giải thích: CORS (Cross-Origin Resource Sharing) cho phép frontend (khác origin) gọi backend
-# Cấu trúc:
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Cho phép tất cả origin (dev), trong prod nên cụ thể
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-# ===== Endpoints =====
-
 @app.get("/")
 def health_check():
-    """
-    Endpoint kiểm tra API có hoạt động không
-    
-    Return:
-        dict: {"status": "ok"}
-    """
     return {"status": "ok"}
+
+
+@app.get("/ai-versions")
+def get_ai_versions():
+    """Return AI configurations that can be selected by the frontend."""
+    versions = sorted(AI_VERSIONS.values(), key=lambda item: item["order"])
+    return {"versions": versions, "default": "v2_current"}
+
+
+def board_to_fen(board_state, is_red_turn, half_move_clock):
+    piece_chars = {
+        1: "K", 2: "A", 3: "B", 4: "R", 5: "N", 6: "C", 7: "P",
+        -1: "k", -2: "a", -3: "b", -4: "r", -5: "n", -6: "c", -7: "p",
+    }
+    ranks = []
+    for row in board_state:
+        rank = ""
+        empty_count = 0
+        for piece in row:
+            if piece == 0:
+                empty_count += 1
+                continue
+            if empty_count:
+                rank += str(empty_count)
+                empty_count = 0
+            rank += piece_chars[piece]
+        if empty_count:
+            rank += str(empty_count)
+        ranks.append(rank)
+
+    side = "w" if is_red_turn else "b"
+    return f"{'/'.join(ranks)} {side} - - {half_move_clock} 1"
+
+
+def get_wukong_move(request, config):
+    fen = board_to_fen(
+        request.board_state,
+        request.is_red_turn,
+        request.half_move_clock,
+    )
+    try:
+        result = subprocess.run(
+            ["node", str(WUKONG_BRIDGE), fen, str(config["max_depth"])],
+            capture_output=True,
+            check=True,
+            text=True,
+            timeout=15,
+        )
+        move = json.loads(result.stdout)
+    except (FileNotFoundError, subprocess.SubprocessError, json.JSONDecodeError) as error:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Khong the chay WukongJS: {error}",
+        ) from error
+
+    return (
+        move["from_row"],
+        move["from_col"],
+        move["to_row"],
+        move["to_col"],
+    )
 
 
 @app.post("/move", response_model=MoveResponse)
 def get_ai_move(request: MoveRequest):
-    """
-    Endpoint chính: AI tính nước đi tốt nhất
-    
-    Args:
-        request (MoveRequest): 
-            - board_state: Mảng 10x9 của bàn cờ
-            - is_red_turn: True = lượt Đỏ
-    
-    Return:
-        MoveResponse: 
-            - from_row, from_col: Vị trí quân cần di chuyển
-            - to_row, to_col: Vị trí đích
-            - score: Điểm số đánh giá
-    """
-    # Tạo Board từ board_state
+    config = AI_VERSIONS.get(request.ai_version)
+    if config is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown AI version: {request.ai_version}",
+        )
+
     board = Board()
     board.board = request.board_state
     board.half_move_clock = request.half_move_clock
-    board.history = request.history
+    board.history = request.history or [board.get_state_hash()]
 
-    # Tạo AIEngine và tìm nước đi tốt nhất
-    engine = AIEngine(board, max_depth=5, time_limit=0.5)
-    best_move = engine.get_best_move(request.is_red_turn)
-    
+    started_at = time.perf_counter()
+    if config["engine"] == "wukong":
+        best_move = get_wukong_move(request, config)
+    else:
+        engine = AIEngine(
+            board,
+            max_depth=config["max_depth"],
+            time_limit=config["time_limit"],
+        )
+        best_move = engine.get_best_move(request.is_red_turn)
+    elapsed_ms = (time.perf_counter() - started_at) * 1000
+
     if best_move is None:
-        raise Exception("Không có nước đi hợp lệ")
-    
+        raise HTTPException(status_code=422, detail="No legal move found")
+
     from_row, from_col, to_row, to_col = best_move
     move_gen = MoveGenerator(board)
     if (to_row, to_col) not in move_gen.generate_moves(from_row, from_col):
-        raise Exception(f"AI trả về nước đi không hợp lệ: {best_move}")
-    
-    # Thực hiện nước đi trên board để lấy clock và history mới
+        raise HTTPException(
+            status_code=500,
+            detail=f"AI returned an invalid move: {best_move}",
+        )
+
     board.move_piece(from_row, from_col, to_row, to_col)
-    
-    # Tính điểm số hiện tại
-    evaluator = Evaluator(board)
-    score = evaluator.evaluate()
-    
+    score = Evaluator(board).evaluate()
+
     return MoveResponse(
         from_row=from_row,
         from_col=from_col,
@@ -112,11 +196,16 @@ def get_ai_move(request: MoveRequest):
         to_col=to_col,
         score=score,
         half_move_clock=board.half_move_clock,
-        history=board.history
+        history=board.history,
+        ai_version=config["id"],
+        ai_name=config["name"],
+        max_depth=config["max_depth"],
+        time_limit=config["time_limit"],
+        elapsed_ms=round(elapsed_ms, 2),
     )
 
 
-# Chạy server
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
