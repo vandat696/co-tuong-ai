@@ -210,22 +210,6 @@ const Board = () => {
           />
 
           {/* Hiển thị vị trí hợp lệ của người chơi */}
-          {validMoves.map(([row, col], idx) => {
-            const pos = getPositionByGrid(row, col);
-            return (
-              <circle
-                key={`valid-${idx}`}
-                cx={pos.x}
-                cy={pos.y}
-                r="15"
-                fill="#00ff00"
-                opacity="0.6"
-                onClick={() => handlePieceClick(row, col)}
-                style={{ cursor: "pointer" }}
-              />
-            );
-          })}
-
           {/* Hiệu ứng nước đi cuối của AI - cùng hình dạng với marker của người chơi, chỉ khác màu */}
           {lastAIMove &&
             (() => {
@@ -308,6 +292,27 @@ const Board = () => {
                   isAiLastMoveTarget={isAiLastMoveTarget}
                 />
               </g>
+            );
+          })}
+
+          {validMoves.map(([row, col], idx) => {
+            const pos = getPositionByGrid(row, col);
+            const hasPiece = Boolean(board[row][col]);
+
+            return (
+              <circle
+                key={`valid-${idx}`}
+                className={`valid-move-target ${hasPiece ? "capture" : ""}`}
+                cx={pos.x}
+                cy={pos.y}
+                r={hasPiece ? "27" : "15"}
+                fill={hasPiece ? "transparent" : "#00ff00"}
+                stroke={hasPiece ? "#22c55e" : "none"}
+                strokeWidth={hasPiece ? "4" : "0"}
+                opacity="0.65"
+                onClick={() => handlePieceClick(row, col)}
+                style={{ cursor: "pointer" }}
+              />
             );
           })}
         </svg>

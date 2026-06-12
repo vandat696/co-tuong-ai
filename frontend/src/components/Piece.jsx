@@ -56,6 +56,7 @@ const pieceSymbols = {
         fontWeight="bold"
         fill={side === 'red' ? '#8b0000' : '#fff'}
         fontFamily="SimSun, serif"
+        pointerEvents="none"
       >
         {symbol}
       </text>
@@ -86,6 +87,7 @@ const pieceSymbols = {
           opacity="0.9"
           strokeDasharray="5,5"
           className="ai-target-ring"
+          pointerEvents="none"
         />
       )}
     </g>

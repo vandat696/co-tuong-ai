@@ -181,6 +181,15 @@
   pointer-events: none;
 }
 
+.ai-last-move-indicator,
+.ai-target-ring {
+  pointer-events: none;
+}
+
+.valid-move-target {
+  pointer-events: all;
+}
+
 @keyframes check-warning-pulse {
   0% {
     opacity: 0.95;
