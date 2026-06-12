@@ -17,23 +17,11 @@ from src.move_gen import MoveGenerator
 
 
 AI_VERSIONS = {
-    "v1_initial": {
-        "id": "v1_initial",
+    "python_current": {
+        "id": "python_current",
         "order": 1,
-        "name": "V1 - AI ban đầu",
-        "description": "Mô phỏng cột mốc đầu tiên của dự án bằng engine Python với độ sâu nhỏ.",
-        "engine": "Python",
-        "runner": "python",
-        "search": "Minimax, cắt tỉa Alpha-Beta và sắp xếp nước đi.",
-        "evaluation": "Giá trị quân cờ và bảng điểm vị trí; dùng cùng bộ đánh giá hiện tại để mô phỏng.",
-        "max_depth": 2,
-        "time_limit": 0.15,
-    },
-    "v2_current": {
-        "id": "v2_current",
-        "order": 2,
-        "name": "V2 - AI Python hiện tại",
-        "description": "Phiên bản chính đang được phát triển trong dự án.",
+        "name": "V1 - Minimax Alpha-Beta",
+        "description": "Engine chính đang được phát triển trong dự án.",
         "engine": "Python",
         "runner": "python",
         "search": "Minimax, Alpha-Beta, đào sâu lặp, bảng chuyển vị, sắp xếp nước đi và tìm kiếm tĩnh.",
@@ -41,10 +29,10 @@ AI_VERSIONS = {
         "max_depth": 5,
         "time_limit": 0.5,
     },
-    "v3_wukong": {
-        "id": "v3_wukong",
-        "order": 3,
-        "name": "V3 - WukongJS tham khảo",
+    "wukong_reference": {
+        "id": "wukong_reference",
+        "order": 2,
+        "name": "V2 - WukongJS Negamax",
         "description": "Engine WukongJS 1.0 dùng làm đối thủ tham chiếu cho AI Python.",
         "engine": "JavaScript / Node.js",
         "runner": "wukong",
@@ -61,7 +49,7 @@ WUKONG_BRIDGE = Path(__file__).parent / "references" / "wukong" / "bridge.js"
 class MoveRequest(BaseModel):
     board_state: List[List[int]]
     is_red_turn: bool
-    ai_version: str = "v2_current"
+    ai_version: str = "python_current"
     half_move_clock: int = 0
     history: List[str] = Field(default_factory=list)
 
@@ -101,7 +89,7 @@ def health_check():
 def get_ai_versions():
     """Return AI configurations that can be selected by the frontend."""
     versions = sorted(AI_VERSIONS.values(), key=lambda item: item["order"])
-    return {"versions": versions, "default": "v2_current"}
+    return {"versions": versions, "default": "python_current"}
 
 
 def board_to_fen(board_state, is_red_turn, half_move_clock):

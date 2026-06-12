@@ -6,21 +6,9 @@ const HUMAN = "human";
 
 const FALLBACK_AI_VERSIONS = [
   {
-    id: "v1_initial",
+    id: "python_current",
     order: 1,
-    name: "V1 - AI ban đầu",
-    description: "Mô phỏng cột mốc đầu tiên bằng engine Python với độ sâu nhỏ.",
-    engine: "Python",
-    runner: "python",
-    search: "Minimax, Alpha-Beta và sắp xếp nước đi.",
-    evaluation: "Giá trị quân cờ và bảng điểm vị trí.",
-    max_depth: 2,
-    time_limit: 0.15,
-  },
-  {
-    id: "v2_current",
-    order: 2,
-    name: "V2 - AI Python hiện tại",
+    name: "V1 - Minimax Alpha-Beta",
     description: "Phiên bản chính đang được phát triển trong dự án.",
     engine: "Python",
     runner: "python",
@@ -30,9 +18,9 @@ const FALLBACK_AI_VERSIONS = [
     time_limit: 0.5,
   },
   {
-    id: "v3_wukong",
-    order: 3,
-    name: "V3 - WukongJS tham khảo",
+    id: "wukong_reference",
+    order: 2,
+    name: "V2 - WukongJS Negamax",
     description: "WukongJS 1.0 dùng làm đối thủ tham chiếu.",
     engine: "JavaScript / Node.js",
     runner: "wukong",
@@ -105,7 +93,7 @@ export const useGame = () => {
   const [currentPlayer, setCurrentPlayer] = useState("red");
   const [lastAIMove, setLastAIMove] = useState(null);
   const [aiVersions, setAIVersions] = useState(FALLBACK_AI_VERSIONS);
-  const [controllers, setControllers] = useState({ red: HUMAN, black: "v2_current" });
+  const [controllers, setControllers] = useState({ red: HUMAN, black: "python_current" });
   const [isRunning, setIsRunning] = useState(true);
   const [isThinking, setIsThinking] = useState(false);
   const [playbackDelay, setPlaybackDelay] = useState(450);
