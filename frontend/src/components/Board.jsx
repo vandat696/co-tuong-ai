@@ -11,6 +11,7 @@ const Board = () => {
     validMoves,
     currentPlayer,
     lastAIMove,
+    gameStatus,
     handlePieceClick,
     resetGame,
   } = useGame();
@@ -207,11 +208,6 @@ const Board = () => {
                 lastAIMove.from[0],
                 lastAIMove.from[1],
               );
-              const toPos = getPositionByGrid(
-                lastAIMove.to[0],
-                lastAIMove.to[1],
-              );
-
               return (
                 <g className="ai-last-move-indicator">
                   {/* Chấm ở vị trí cũ */}
@@ -221,6 +217,35 @@ const Board = () => {
                     r="15"
                     fill="#3399ff"
                     opacity="0.7"
+                  />
+                </g>
+              );
+            })()}
+
+          {/* Cảnh báo tướng đang bị chiếu */}
+          {gameStatus.checkedKingPos &&
+            (() => {
+              const [row, col] = gameStatus.checkedKingPos;
+              const pos = getPositionByGrid(row, col);
+
+              return (
+                <g className="check-warning">
+                  <circle
+                    cx={pos.x}
+                    cy={pos.y}
+                    r="28"
+                    fill="none"
+                    stroke="#e11d48"
+                    strokeWidth="4"
+                  />
+                  <circle
+                    cx={pos.x}
+                    cy={pos.y}
+                    r="36"
+                    fill="none"
+                    stroke="#e11d48"
+                    strokeWidth="2"
+                    opacity="0.45"
                   />
                 </g>
               );
@@ -268,6 +293,15 @@ const Board = () => {
             <span className={`player ${currentPlayer}`}>
               {currentPlayer === "red" ? "🔴 Red" : "⚫ Black"} Player
             </span>
+            {gameStatus.isCheckmate ? (
+              <span className="status checkmate">
+                Chiếu hết - {gameStatus.winner === "red" ? "Đỏ" : "Đen"} thắng
+              </span>
+            ) : gameStatus.checkedSide ? (
+              <span className="status check">
+                Chiếu {gameStatus.checkedSide === "red" ? "Đỏ" : "Đen"}
+              </span>
+            ) : null}
           </div>
           <button className="reset-btn" onClick={resetGame}>
             ↻ Reset Game

@@ -112,6 +112,9 @@ def get_ai_move(request: MoveRequest):
         raise Exception("Không có nước đi hợp lệ")
     
     from_row, from_col, to_row, to_col = best_move
+    move_gen = MoveGenerator(board)
+    if (to_row, to_col) not in move_gen.generate_moves(from_row, from_col):
+        raise Exception(f"AI trả về nước đi không hợp lệ: {best_move}")
     
     # Thực hiện nước đi trên board để lấy clock và history mới
     board.move_piece(from_row, from_col, to_row, to_col)

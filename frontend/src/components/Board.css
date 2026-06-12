@@ -59,6 +59,7 @@
 
 .player-info {
   display: flex;
+  align-items: center;
   gap: 10px;
 }
 
@@ -77,6 +78,24 @@
 .player.black {
   background-color: rgba(100, 100, 100, 0.2);
   color: #000;
+}
+
+.status {
+  padding: 8px 12px;
+  border: 1px solid #8b4513;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.75);
+}
+
+.status.check {
+  color: #9f1239;
+  background: rgba(255, 228, 230, 0.9);
+}
+
+.status.checkmate {
+  color: #fff;
+  background: #9f1239;
+  border-color: #4c0519;
 }
 
 .reset-btn {
@@ -130,5 +149,22 @@
   }
   100% {
     opacity: 0.45;
+  }
+}
+
+.check-warning {
+  animation: check-warning-pulse 1s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes check-warning-pulse {
+  0% {
+    opacity: 0.95;
+  }
+  50% {
+    opacity: 0.45;
+  }
+  100% {
+    opacity: 0.95;
   }
 }
