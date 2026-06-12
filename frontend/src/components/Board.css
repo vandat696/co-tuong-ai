@@ -247,12 +247,45 @@
   font-weight: 500;
 }
 
-.controller-card .version-description {
+.version-details {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 6px;
+  background: #faf5ed;
+}
+
+.version-details p {
   margin: 0;
   color: #5f4b3a;
   font-size: 12px;
   font-weight: 500;
   line-height: 1.45;
+}
+
+.version-details dl {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+
+.version-details dl > div {
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  gap: 7px;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.version-details dt {
+  color: #8b4513;
+  font-weight: 800;
+}
+
+.version-details dd {
+  margin: 0;
+  color: #5f4b3a;
+  font-weight: 500;
 }
 
 .arena-actions {
@@ -304,28 +337,68 @@
 }
 
 .move-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 4px 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-bottom: 7px;
-  padding: 9px;
+  padding: 7px 9px;
   border-left: 4px solid #27272a;
   border-radius: 4px;
   background: #f4eee6;
   font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .move-row.red {
   border-left-color: #b91c1c;
 }
 
+.move-side {
+  min-width: 24px;
+  font-weight: 800;
+}
+
+.move-row.red .move-side {
+  color: #b91c1c;
+}
+
+.move-row.black .move-side {
+  color: #18181b;
+}
+
+.move-controller {
+  min-width: 0;
+  overflow: hidden;
+  color: #766452;
+  text-overflow: ellipsis;
+}
+
 .move-row code {
+  padding: 2px 5px;
+  border-radius: 4px;
   font-weight: 700;
 }
 
-.move-row small {
-  grid-column: 1 / -1;
+.move-from {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.move-arrow {
+  color: #9a5b13;
+  font-weight: 900;
+}
+
+.move-to {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.move-meta {
+  margin-left: auto;
   color: #766452;
+  font-size: 10px;
 }
 
 @media (max-width: 1100px) {

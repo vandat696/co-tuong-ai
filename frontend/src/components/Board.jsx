@@ -293,7 +293,7 @@ const Board = () => {
         <div className="game-info">
           <div className="player-info">
             <span className={`player ${currentPlayer}`}>
-              {currentPlayer === "red" ? "🔴 Red" : "⚫ Black"} Player
+              Lượt bên {currentPlayer === "red" ? "Đỏ" : "Đen"}
             </span>
             {gameStatus.isCheckmate ? (
               <span className="status checkmate">
@@ -306,7 +306,7 @@ const Board = () => {
             ) : null}
           </div>
           <button className="reset-btn" onClick={resetGame}>
-            ↻ Reset Game
+            Ván mới
           </button>
         </div>
       </div>

@@ -20,27 +20,36 @@ AI_VERSIONS = {
     "v1_initial": {
         "id": "v1_initial",
         "order": 1,
-        "name": "V1 - AI ban dau",
-        "description": "Mo phong moc khoi dau bang engine Python voi gioi han tim kiem nho.",
-        "engine": "python",
+        "name": "V1 - AI ban đầu",
+        "description": "Mô phỏng cột mốc đầu tiên của dự án bằng engine Python với độ sâu nhỏ.",
+        "engine": "Python",
+        "runner": "python",
+        "search": "Minimax, cắt tỉa Alpha-Beta và sắp xếp nước đi.",
+        "evaluation": "Giá trị quân cờ và bảng điểm vị trí; dùng cùng bộ đánh giá hiện tại để mô phỏng.",
         "max_depth": 2,
         "time_limit": 0.15,
     },
     "v2_current": {
         "id": "v2_current",
         "order": 2,
-        "name": "V2 - AI Python hien tai",
-        "description": "Ban da cai tien voi Alpha-Beta, Iterative Deepening, TT va Quiescence Search.",
-        "engine": "python",
+        "name": "V2 - AI Python hiện tại",
+        "description": "Phiên bản chính đang được phát triển trong dự án.",
+        "engine": "Python",
+        "runner": "python",
+        "search": "Minimax, Alpha-Beta, đào sâu lặp, bảng chuyển vị, sắp xếp nước đi và tìm kiếm tĩnh.",
+        "evaluation": "Tapered Evaluation theo khai/trung cuộc và tàn cuộc, kết hợp giá trị quân với bảng điểm vị trí.",
         "max_depth": 5,
         "time_limit": 0.5,
     },
     "v3_wukong": {
         "id": "v3_wukong",
         "order": 3,
-        "name": "V3 - WukongJS tham khao",
-        "description": "Engine WukongJS 1.0 dung de quan sat va doi chieu voi AI Python.",
-        "engine": "wukong",
+        "name": "V3 - WukongJS tham khảo",
+        "description": "Engine WukongJS 1.0 dùng làm đối thủ tham chiếu cho AI Python.",
+        "engine": "JavaScript / Node.js",
+        "runner": "wukong",
+        "search": "Negamax, Alpha-Beta, đào sâu lặp, bảng chuyển vị, tìm kiếm tĩnh, Null Move, Futility, LMR và PVS.",
+        "evaluation": "Giá trị quân cờ kết hợp bảng điểm vị trí (PST) lấy từ các tài liệu nghiên cứu cờ tướng.",
         "max_depth": 3,
         "time_limit": 0.0,
     },
@@ -138,7 +147,7 @@ def get_wukong_move(request, config):
     except (FileNotFoundError, subprocess.SubprocessError, json.JSONDecodeError) as error:
         raise HTTPException(
             status_code=503,
-            detail=f"Khong the chay WukongJS: {error}",
+            detail=f"Không thể chạy WukongJS: {error}",
         ) from error
 
     return (
@@ -155,7 +164,7 @@ def get_ai_move(request: MoveRequest):
     if config is None:
         raise HTTPException(
             status_code=400,
-            detail=f"Unknown AI version: {request.ai_version}",
+            detail=f"Không tồn tại phiên bản AI: {request.ai_version}",
         )
 
     board = Board()
@@ -164,7 +173,7 @@ def get_ai_move(request: MoveRequest):
     board.history = request.history or [board.get_state_hash()]
 
     started_at = time.perf_counter()
-    if config["engine"] == "wukong":
+    if config["runner"] == "wukong":
         best_move = get_wukong_move(request, config)
     else:
         engine = AIEngine(
@@ -176,14 +185,14 @@ def get_ai_move(request: MoveRequest):
     elapsed_ms = (time.perf_counter() - started_at) * 1000
 
     if best_move is None:
-        raise HTTPException(status_code=422, detail="No legal move found")
+        raise HTTPException(status_code=422, detail="AI không tìm được nước đi hợp lệ")
 
     from_row, from_col, to_row, to_col = best_move
     move_gen = MoveGenerator(board)
     if (to_row, to_col) not in move_gen.generate_moves(from_row, from_col):
         raise HTTPException(
             status_code=500,
-            detail=f"AI returned an invalid move: {best_move}",
+            detail=f"AI trả về nước đi không hợp lệ: {best_move}",
         )
 
     board.move_piece(from_row, from_col, to_row, to_col)

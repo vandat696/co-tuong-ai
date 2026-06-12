@@ -1,3 +1,5 @@
+const SIDE_ORDER = ["black", "red"];
+
 const ArenaPanel = ({ game }) => {
   const {
     aiVersions,
@@ -17,7 +19,7 @@ const ArenaPanel = ({ game }) => {
   } = game;
 
   const controllerName = (controller) => {
-    if (controller === "human") return "Human";
+    if (controller === "human") return "Người chơi";
     return aiVersions.find((version) => version.id === controller)?.name || controller;
   };
 
@@ -29,47 +31,72 @@ const ArenaPanel = ({ game }) => {
   const selectedVersion = (side) =>
     aiVersions.find((version) => version.id === controllers[side]);
 
+  const coordinate = ([row, col]) =>
+    `${String.fromCharCode("a".charCodeAt(0) + col)}${9 - row}`;
+
   return (
     <aside className="arena-panel">
       <div>
-        <p className="eyebrow">AI Arena</p>
-        <h1>Quan sat va so sanh AI</h1>
+        <p className="eyebrow">Đấu trường AI</p>
+        <h1>Quan sát và so sánh AI</h1>
         <p className="arena-copy">
-          Chon bo dieu khien cho tung ben. Dat ca hai ben thanh AI de xem chung tu dau.
+          Chọn người chơi hoặc phiên bản AI cho từng bên. Chọn AI cho cả hai bên để
+          quan sát chúng tự đấu.
         </p>
       </div>
 
-      {["red", "black"].map((side) => (
-        <label className={`controller-card ${side}`} key={side}>
-          <span>{side === "red" ? "Do" : "Den"}</span>
-          <select
-            value={controllers[side]}
-            onChange={(event) => setController(side, event.target.value)}
-            disabled={isThinking}
-          >
-            <option value="human">Human</option>
-            {aiVersions.map((version) => (
-              <option value={version.id} key={version.id}>
-                {version.name}
-              </option>
-            ))}
-          </select>
-          {selectedVersion(side) && (
-            <p className="version-description">
-              {selectedVersion(side).description}
-              <br />
-              Engine: {selectedVersion(side).engine} | Depth {selectedVersion(side).max_depth}
-              {selectedVersion(side).time_limit
-                ? ` | ${selectedVersion(side).time_limit}s/nuoc`
-                : ""}
-            </p>
-          )}
-          <small>
-            {stats[side].moves} nuoc AI | TB {averageTime(side)} ms | Gan nhat{" "}
-            {Math.round(stats[side].lastMs)} ms
-          </small>
-        </label>
-      ))}
+      {SIDE_ORDER.map((side) => {
+        const version = selectedVersion(side);
+
+        return (
+          <section className={`controller-card ${side}`} key={side}>
+            <label htmlFor={`${side}-controller`}>
+              Bên {side === "red" ? "Đỏ" : "Đen"}
+            </label>
+            <select
+              id={`${side}-controller`}
+              value={controllers[side]}
+              onChange={(event) => setController(side, event.target.value)}
+              disabled={isThinking}
+            >
+              <option value="human">Người chơi</option>
+              {aiVersions.map((item) => (
+                <option value={item.id} key={item.id}>
+                  {item.name}
+                </option>
+              ))}
+            </select>
+
+            {version && (
+              <div className="version-details">
+                <p>{version.description}</p>
+                <dl>
+                  <div>
+                    <dt>Thuật toán</dt>
+                    <dd>{version.search}</dd>
+                  </div>
+                  <div>
+                    <dt>Hàm đánh giá</dt>
+                    <dd>{version.evaluation}</dd>
+                  </div>
+                  <div>
+                    <dt>Thiết lập</dt>
+                    <dd>
+                      {version.engine}, sâu tối đa {version.max_depth}
+                      {version.time_limit ? `, ${version.time_limit} giây/nước` : ""}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+            )}
+
+            <small>
+              {stats[side].moves} nước AI · Trung bình {averageTime(side)} ms · Gần nhất{" "}
+              {Math.round(stats[side].lastMs)} ms
+            </small>
+          </section>
+        );
+      })}
 
       <div className="arena-actions">
         <button
@@ -77,13 +104,13 @@ const ArenaPanel = ({ game }) => {
           onClick={() => setIsRunning((running) => !running)}
           disabled={gameStatus.isCheckmate}
         >
-          {isRunning ? "Tam dung AI" : "Chay AI"}
+          {isRunning ? "Tạm dừng AI" : "Chạy AI"}
         </button>
-        <button onClick={resetGame}>Van moi</button>
+        <button onClick={resetGame}>Ván mới</button>
       </div>
 
       <label className="speed-control">
-        <span>Do tre quan sat: {playbackDelay} ms</span>
+        <span>Độ trễ quan sát: {playbackDelay} ms</span>
         <input
           type="range"
           min="0"
@@ -96,31 +123,34 @@ const ArenaPanel = ({ game }) => {
 
       <div className="arena-status">
         <strong>
-          {isThinking
-            ? `${controllerName(controllers[currentPlayer])} dang suy nghi...`
+          {gameStatus.isCheckmate
+            ? `Chiếu hết · Bên ${gameStatus.winner === "red" ? "Đỏ" : "Đen"} thắng`
+            : gameStatus.checkedSide
+              ? `Bên ${gameStatus.checkedSide === "red" ? "Đỏ" : "Đen"} đang bị chiếu`
+              : isThinking
+            ? `${controllerName(controllers[currentPlayer])} đang suy nghĩ...`
             : isRunning
-              ? `Luot ${currentPlayer === "red" ? "Do" : "Den"}`
-              : "Arena dang tam dung"}
+              ? `Lượt bên ${currentPlayer === "red" ? "Đỏ" : "Đen"}`
+              : "Đấu trường đang tạm dừng"}
         </strong>
         {arenaError && <span className="arena-error">{arenaError}</span>}
       </div>
 
       <div className="move-log">
-        <h2>Lich su nuoc di</h2>
+        <h2>Lịch sử nước đi</h2>
         {moveLog.length === 0 ? (
-          <p>Chua co nuoc di.</p>
+          <p>Chưa có nước đi.</p>
         ) : (
           [...moveLog].reverse().map((move, index) => (
             <div className={`move-row ${move.side}`} key={`${moveLog.length}-${index}`}>
-              <span>
-                {move.side === "red" ? "Do" : "Den"} / {move.controller}
+              <span className="move-side">{move.side === "red" ? "Đỏ" : "Đen"}</span>
+              <span className="move-controller">{move.controller}</span>
+              <code className="move-from">{coordinate(move.from)}</code>
+              <span className="move-arrow">→</span>
+              <code className="move-to">{coordinate(move.to)}</code>
+              <span className="move-meta">
+                {move.elapsedMs ? `${Math.round(move.elapsedMs)} ms · điểm ${move.score}` : "người chơi"}
               </span>
-              <code>
-                {move.from.join(",")} to {move.to.join(",")}
-              </code>
-              <small>
-                {move.elapsedMs ? `${Math.round(move.elapsedMs)} ms | score ${move.score}` : "human"}
-              </small>
             </div>
           ))
         )}

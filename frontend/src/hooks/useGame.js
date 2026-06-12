@@ -8,27 +8,36 @@ const FALLBACK_AI_VERSIONS = [
   {
     id: "v1_initial",
     order: 1,
-    name: "V1 - AI ban dau",
-    description: "Mo phong moc khoi dau bang engine Python voi gioi han tim kiem nho.",
-    engine: "python",
+    name: "V1 - AI ban đầu",
+    description: "Mô phỏng cột mốc đầu tiên bằng engine Python với độ sâu nhỏ.",
+    engine: "Python",
+    runner: "python",
+    search: "Minimax, Alpha-Beta và sắp xếp nước đi.",
+    evaluation: "Giá trị quân cờ và bảng điểm vị trí.",
     max_depth: 2,
     time_limit: 0.15,
   },
   {
     id: "v2_current",
     order: 2,
-    name: "V2 - AI Python hien tai",
-    description: "Alpha-Beta, Iterative Deepening, TT va Quiescence Search.",
-    engine: "python",
+    name: "V2 - AI Python hiện tại",
+    description: "Phiên bản chính đang được phát triển trong dự án.",
+    engine: "Python",
+    runner: "python",
+    search: "Minimax, Alpha-Beta, đào sâu lặp, bảng chuyển vị và tìm kiếm tĩnh.",
+    evaluation: "Tapered Evaluation kết hợp giá trị quân và bảng điểm vị trí.",
     max_depth: 5,
     time_limit: 0.5,
   },
   {
     id: "v3_wukong",
     order: 3,
-    name: "V3 - WukongJS tham khao",
-    description: "WukongJS 1.0 dung de doi chieu voi AI Python.",
-    engine: "wukong",
+    name: "V3 - WukongJS tham khảo",
+    description: "WukongJS 1.0 dùng làm đối thủ tham chiếu.",
+    engine: "JavaScript / Node.js",
+    runner: "wukong",
+    search: "Negamax, Alpha-Beta, TT, Null Move, Futility, LMR và PVS.",
+    evaluation: "Giá trị quân cờ kết hợp bảng điểm vị trí.",
     max_depth: 3,
     time_limit: 0,
   },
@@ -110,7 +119,7 @@ export const useGame = () => {
   useEffect(() => {
     fetchAIVersions()
       .then(({ versions }) => setAIVersions(versions))
-      .catch(() => setArenaError("Khong tai duoc danh sach AI; dang dung cau hinh mac dinh."));
+      .catch(() => setArenaError("Không tải được danh sách AI; đang dùng cấu hình mặc định."));
   }, []);
 
   const gameStatus = useMemo(
@@ -198,7 +207,7 @@ export const useGame = () => {
           aiMove.to_col,
           currentPlayer,
         );
-        if (!isLegal) throw new Error(`${aiMove.ai_name} tra ve nuoc di khong hop le.`);
+        if (!isLegal) throw new Error(`${aiMove.ai_name} trả về nước đi không hợp lệ.`);
 
         await new Promise((resolve) => setTimeout(resolve, playbackDelay));
         if (cancelled) return;
@@ -241,7 +250,7 @@ export const useGame = () => {
         setCurrentPlayer(XiangqiRules.getOpponent(currentPlayer));
       } catch (error) {
         if (!cancelled) {
-          setArenaError(error.response?.data?.detail || error.message || "AI move failed.");
+          setArenaError(error.response?.data?.detail || error.message || "AI không thể thực hiện nước đi.");
           setIsRunning(false);
         }
       } finally {
