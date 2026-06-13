@@ -249,7 +249,8 @@
 }
 
 .controller-card,
-.speed-control {
+.speed-control,
+.search-control {
   display: grid;
   gap: 8px;
   margin-top: 14px;
@@ -433,6 +434,60 @@
   margin-left: auto;
   color: #766452;
   font-size: 10px;
+}
+
+.speed-control input,
+.search-control input {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: linear-gradient(to right, #ddd 0%, #bbb 100%);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+
+.speed-control input::-webkit-slider-thumb,
+.search-control input::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b4513 0%, #6b3410 100%);
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.speed-control input::-webkit-slider-thumb:hover,
+.search-control input::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+
+.speed-control input::-moz-range-thumb,
+.search-control input::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #8b4513 0%, #6b3410 100%);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.speed-control input:disabled,
+.search-control input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.speed-control small,
+.search-control small {
+  color: #8b6f47;
+  font-size: 11px;
+  font-weight: 500;
+  margin-top: 2px;
 }
 
 @media (max-width: 1100px) {

@@ -129,6 +129,8 @@ export const useGame = () => {
   const [stats, setStats] = useState(emptyStats);
   const [arenaError, setArenaError] = useState("");
   const [gameStatus, setGameStatus] = useState(emptyGameStatus);
+  const [timeLimit, setTimeLimit] = useState(0.5);
+  const [maxDepth, setMaxDepth] = useState(64);
   const thinkingRef = useRef(false);
 
   useEffect(() => {
@@ -233,6 +235,8 @@ export const useGame = () => {
           boardState: boardToIntArray(board),
           isRedTurn: currentPlayer === "red",
           aiVersion: currentController,
+          timeLimit,
+          maxDepth,
           halfMoveClock,
           history,
         });
@@ -305,6 +309,8 @@ export const useGame = () => {
     history,
     isRunning,
     playbackDelay,
+    timeLimit,
+    maxDepth,
   ]);
 
   const resetGame = useCallback(() => {
@@ -348,5 +354,9 @@ export const useGame = () => {
     moveLog,
     stats,
     arenaError,
+    timeLimit,
+    setTimeLimit,
+    maxDepth,
+    setMaxDepth,
   };
 };

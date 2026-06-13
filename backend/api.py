@@ -69,6 +69,8 @@ class GameStateRequest(BaseModel):
 
 class MoveRequest(GameStateRequest):
     ai_version: str = "python_current"
+    time_limit: Optional[float] = None
+    max_depth: Optional[int] = None
 
 
 class LegalMovesRequest(GameStateRequest):
@@ -349,19 +351,23 @@ def get_ai_move(request: MoveRequest):
             detail=f"Không tồn tại phiên bản AI: {request.ai_version}",
         )
 
+    # Override config with client's values if provided
+    max_depth = request.max_depth if request.max_depth is not None else config["max_depth"]
+    time_limit = request.time_limit if request.time_limit is not None else config["time_limit"]
+
     board = build_board(request)
 
     started_at = time.perf_counter()
     engine = None
     search_stats = {}
     if config["runner"] == "wukong":
-        best_move, search_stats = get_wukong_move(request, config)
+        best_move, search_stats = get_wukong_move(request, {"max_depth": max_depth, "time_limit": time_limit})
     else:
         engine_class = AIEngineV3 if config["runner"] == "python_v3" else AIEngine
         engine = engine_class(
             board,
-            max_depth=config["max_depth"],
-            time_limit=config["time_limit"],
+            max_depth=max_depth,
+            time_limit=time_limit,
         )
         best_move = engine.get_best_move(request.is_red_turn)
     wall_elapsed_ms = (time.perf_counter() - started_at) * 1000
@@ -404,8 +410,8 @@ def get_ai_move(request: MoveRequest):
         history=board.history,
         ai_version=config["id"],
         ai_name=config["name"],
-        max_depth=config["max_depth"],
-        time_limit=config["time_limit"],
+        max_depth=max_depth,
+        time_limit=time_limit,
         elapsed_ms=round(elapsed_ms, 2),
         completed_depth=(
             engine.stats.completed_depth

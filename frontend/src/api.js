@@ -11,6 +11,8 @@ export const fetchAIMove = async ({
   boardState,
   isRedTurn,
   aiVersion,
+  timeLimit,
+  maxDepth,
   halfMoveClock = 0,
   history = [],
 }) => {
@@ -18,6 +20,8 @@ export const fetchAIMove = async ({
     board_state: boardState,
     is_red_turn: isRedTurn,
     ai_version: aiVersion,
+    time_limit: timeLimit,
+    max_depth: maxDepth,
     half_move_clock: halfMoveClock,
     history,
   });

@@ -1,3 +1,5 @@
+import React from "react";
+
 const SIDE_ORDER = ["black", "red"];
 
 const ArenaPanel = ({ game }) => {
@@ -16,6 +18,10 @@ const ArenaPanel = ({ game }) => {
     setIsRunning,
     setPlaybackDelay,
     stats,
+    timeLimit,
+    setTimeLimit,
+    maxDepth,
+    setMaxDepth,
   } = game;
 
   const controllerName = (controller) => {
@@ -116,6 +122,34 @@ const ArenaPanel = ({ game }) => {
           value={playbackDelay}
           onChange={(event) => setPlaybackDelay(Number(event.target.value))}
         />
+      </label>
+
+      <label className="search-control">
+        <span>Thời gian suy nghĩ: {timeLimit.toFixed(1)}s</span>
+        <input
+          type="range"
+          min="0.1"
+          max="5"
+          step="0.1"
+          value={timeLimit}
+          onChange={(event) => setTimeLimit(parseFloat(event.target.value))}
+          disabled={isThinking}
+        />
+        <small>Dùng để điều chỉnh độ sâu của AI</small>
+      </label>
+
+      <label className="search-control">
+        <span>Độ sâu tối đa: {maxDepth}</span>
+        <input
+          type="range"
+          min="1"
+          max="64"
+          step="1"
+          value={maxDepth}
+          onChange={(event) => setMaxDepth(parseInt(event.target.value))}
+          disabled={isThinking}
+        />
+        <small>Càng cao càng suy nghĩ kỹ, nhưng tốn thời gian hơn</small>
       </label>
 
       <div className="arena-status">
