@@ -14,7 +14,7 @@ const FALLBACK_AI_VERSIONS = [
     runner: "python",
     search: "Minimax, Alpha-Beta, đào sâu lặp, bảng chuyển vị và tìm kiếm tĩnh.",
     evaluation: "Tapered Evaluation kết hợp giá trị quân và bảng điểm vị trí.",
-    max_depth: 5,
+    max_depth: 64,
     time_limit: 0.5,
   },
   {
@@ -26,8 +26,8 @@ const FALLBACK_AI_VERSIONS = [
     runner: "wukong",
     search: "Negamax, Alpha-Beta, TT, Null Move, Futility, LMR và PVS.",
     evaluation: "Giá trị quân cờ kết hợp bảng điểm vị trí.",
-    max_depth: 3,
-    time_limit: 0,
+    max_depth: 64,
+    time_limit: 0.5,
   },
   {
     id: "python_v3",
@@ -38,7 +38,7 @@ const FALLBACK_AI_VERSIONS = [
     runner: "python_v3",
     search: "Negamax, Alpha-Beta, Zobrist TT, PVS, LMR, Null Move, Futility, Razoring và quiescence có xử lý chiếu.",
     evaluation: "Hybrid: tapered material/PST nhanh trong search; activity và King Safety dùng cho phân tích/fallback.",
-    max_depth: 3,
+    max_depth: 64,
     time_limit: 0.5,
   },
 ];

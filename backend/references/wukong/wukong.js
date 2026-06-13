@@ -1734,6 +1734,12 @@ var Engine = function () {
 
   // visited nodes count
   var nodes = 0;
+  var searchInfo = {
+    completedDepth: 0,
+    nodes: 0,
+    stopped: 0,
+    elapsedMs: 0,
+  };
 
   // most valuable victim least valuable attacker, e.g. Pxr == 606, Rxp =
   const MVV_LVA = [
@@ -1886,7 +1892,7 @@ var Engine = function () {
     pvLength[searchPly] = searchPly;
     nodes++;
 
-    if ((nodes & 2047) == 0) {
+    if ((nodes & 255) == 0) {
       checkTime();
       if (timing.stopped == 1) return 0;
     }
@@ -1944,7 +1950,7 @@ var Engine = function () {
       return score;
 
     // check time left
-    if ((nodes & 2047) == 0) {
+    if ((nodes & 255) == 0) {
       checkTime();
       if (timing.stopped == 1) return 0;
     }
@@ -2121,13 +2127,14 @@ var Engine = function () {
   function searchPosition(depth) {
     let start = Date.now();
     let score = 0;
-    let lastBestMove = 0;
+    let fallbackMoves = generateLegalMoves();
+    let completedBestMove = fallbackMoves.length ? fallbackMoves[0].move : 0;
+    let completedDepth = 0;
 
     clearSearch();
 
     // iterative deepening
     for (let currentDepth = 1; currentDepth <= depth; currentDepth++) {
-      lastBestMove = pvTable[0];
       followPv = 1;
       score = negamax(-INFINITY, INFINITY, currentDepth, DO_NULL);
 
@@ -2138,6 +2145,8 @@ var Engine = function () {
       )
         break;
 
+      completedBestMove = pvTable[0] || completedBestMove;
+      completedDepth = currentDepth;
       let info = "";
 
       if (typeof document != "undefined") var uciScore = 0;
@@ -2201,7 +2210,13 @@ var Engine = function () {
       if (info.includes("mate") || info.includes("-49000")) break;
     }
 
-    let bestMove = timing.stopped == 1 ? lastBestMove : pvTable[0];
+    let bestMove = completedBestMove;
+    searchInfo = {
+      completedDepth: completedDepth,
+      nodes: nodes,
+      stopped: timing.stopped,
+      elapsedMs: Date.now() - start,
+    };
     console.log("bestmove " + moveToString(bestMove));
     return bestMove;
   }
@@ -2344,6 +2359,9 @@ var Engine = function () {
     },
     getTimeControl: function () {
       return JSON.parse(JSON.stringify(timing));
+    },
+    getSearchInfo: function () {
+      return JSON.parse(JSON.stringify(searchInfo));
     },
     search: function (depth) {
       return searchPosition(depth);

@@ -272,6 +272,14 @@ cao hơn trong cùng thời gian.
 - Trọng số feature hiện là giá trị khởi đầu, chưa được tuning bằng hàng trăm ván.
 - Chưa có benchmark Elo đủ lớn để khẳng định V3 chắc chắn mạnh hơn mọi phiên bản.
 
+## Chuẩn so sánh thời gian
+
+Đấu trường cấp cùng ngân sách suy nghĩ `0.5` giây cho V1, V2 và V3. Cả ba dùng
+iterative deepening với `max_depth = 64` làm trần an toàn và trả nước tốt nhất
+của độ sâu đã hoàn thành. Nhờ vậy phép so sánh tập trung vào độ sâu, số node và
+chất lượng nước đi đạt được trong cùng thời gian, thay vì ép các engine chạy cùng
+độ sâu dù tốc độ triển khai khác nhau.
+
 ## Sự tiến bộ qua từng phiên bản
 
 | Khía cạnh | V1 | V2 | V3 |

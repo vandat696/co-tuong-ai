@@ -26,6 +26,8 @@ class AIEngine:
         self.transposition_table = {}  # Bộ nhớ đệm Transposition Table
         self.move_gen = MoveGenerator(board)
         self.evaluator = Evaluator(board)
+        self.completed_depth = 0
+        self.nodes = 0
 
     def _is_allowed_move(self, move):
         return not self.board.would_repeat_threefold(*move)
@@ -36,6 +38,8 @@ class AIEngine:
         """
         self.start_time = time.time()
         self.timeout = False
+        self.completed_depth = 0
+        self.nodes = 0
         self.transposition_table.clear()  # Xóa cache mỗi lượt mới để tránh tràn RAM
         self.evaluator._calculate_initial_score()  # Đồng bộ lại điểm (Cả MG, EG, Phase)
         best_move_overall = None
@@ -49,6 +53,7 @@ class AIEngine:
                 
             if move is not None:
                 best_move_overall = move  # Cập nhật nước đi tốt nhất của độ sâu này
+                self.completed_depth = depth
                 
         return best_move_overall
 
@@ -172,6 +177,7 @@ class AIEngine:
         Tìm kiếm tĩnh (Quiescence Search) để tránh Horizon Effect.
         Chỉ duyệt các nước ĂN QUÂN cho đến khi trạng thái bớt biến động.
         """
+        self.nodes += 1
         # 1. Kiểm tra hết giờ
         if time.time() - self.start_time > self.time_limit:
             self.timeout = True
@@ -269,6 +275,7 @@ class AIEngine:
         Return:
             int: Điểm số tốt nhất
         """
+        self.nodes += 1
         # ===== Kiểm tra thời gian =====
         if time.time() - self.start_time > self.time_limit:
             self.timeout = True

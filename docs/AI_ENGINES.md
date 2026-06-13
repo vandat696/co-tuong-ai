@@ -93,6 +93,11 @@ Engine tìm lần lượt từ độ sâu 1 đến `max_depth`:
 depth 1 -> depth 2 -> depth 3 -> ...
 ```
 
+Ba engine trong đấu trường dùng cùng ngân sách suy nghĩ `0.5` giây mỗi nước.
+`max_depth = 64` chỉ là trần an toàn; kết quả được lấy từ vòng iterative
+deepening hoàn thành cuối cùng. Với V2, thời gian khởi động Node bridge không
+được tính vào thời gian suy nghĩ nội bộ của engine.
+
 Nếu hết thời gian giữa một vòng tìm kiếm, engine dùng kết quả hoàn chỉnh của độ sâu
 trước đó. Nước tốt nhất của vòng trước cũng được ưu tiên duyệt trước ở vòng sau.
 

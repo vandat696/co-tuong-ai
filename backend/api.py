@@ -28,7 +28,7 @@ AI_VERSIONS = {
         "runner": "python",
         "search": "Minimax, Alpha-Beta, đào sâu lặp, bảng chuyển vị, sắp xếp nước đi và tìm kiếm tĩnh.",
         "evaluation": "Tapered Evaluation theo khai/trung cuộc và tàn cuộc, kết hợp giá trị quân với bảng điểm vị trí.",
-        "max_depth": 5,
+        "max_depth": 64,
         "time_limit": 0.5,
     },
     "wukong_reference": {
@@ -40,8 +40,8 @@ AI_VERSIONS = {
         "runner": "wukong",
         "search": "Negamax, Alpha-Beta, IDS, bảng chuyển vị, tìm kiếm tĩnh, Null Move, Futility, LMR và PVS.",
         "evaluation": "Giá trị quân cờ kết hợp bảng điểm vị trí (PST) lấy từ các tài liệu nghiên cứu cờ tướng.",
-        "max_depth": 3,
-        "time_limit": 0.0,
+        "max_depth": 64,
+        "time_limit": 0.5,
     },
     "python_v3": {
         "id": "python_v3",
@@ -52,7 +52,7 @@ AI_VERSIONS = {
         "runner": "python_v3",
         "search": "Negamax, Alpha-Beta, IDS, Zobrist TT, PVS, LMR, Null Move, Futility, Razoring, Killer/History và quiescence có xử lý chiếu.",
         "evaluation": "Hybrid: tapered material/PST nhanh trong search; activity và King Safety dùng cho phân tích/fallback.",
-        "max_depth": 3,
+        "max_depth": 64,
         "time_limit": 0.5,
     },
 }
@@ -230,11 +230,17 @@ def get_wukong_move(request, config):
     )
     try:
         result = subprocess.run(
-            ["node", str(WUKONG_BRIDGE), fen, str(config["max_depth"])],
+            [
+                "node",
+                str(WUKONG_BRIDGE),
+                fen,
+                str(config["max_depth"]),
+                str(round(config["time_limit"] * 1000)),
+            ],
             capture_output=True,
             check=True,
             text=True,
-            timeout=15,
+            timeout=config["time_limit"] + 2,
         )
         move = json.loads(result.stdout)
     except (FileNotFoundError, subprocess.SubprocessError, json.JSONDecodeError) as error:
@@ -244,10 +250,13 @@ def get_wukong_move(request, config):
         ) from error
 
     return (
-        move["from_row"],
-        move["from_col"],
-        move["to_row"],
-        move["to_col"],
+        (
+            move["from_row"],
+            move["from_col"],
+            move["to_row"],
+            move["to_col"],
+        ),
+        move,
     )
 
 
@@ -344,8 +353,9 @@ def get_ai_move(request: MoveRequest):
 
     started_at = time.perf_counter()
     engine = None
+    search_stats = {}
     if config["runner"] == "wukong":
-        best_move = get_wukong_move(request, config)
+        best_move, search_stats = get_wukong_move(request, config)
     else:
         engine_class = AIEngineV3 if config["runner"] == "python_v3" else AIEngine
         engine = engine_class(
@@ -354,7 +364,8 @@ def get_ai_move(request: MoveRequest):
             time_limit=config["time_limit"],
         )
         best_move = engine.get_best_move(request.is_red_turn)
-    elapsed_ms = (time.perf_counter() - started_at) * 1000
+    wall_elapsed_ms = (time.perf_counter() - started_at) * 1000
+    elapsed_ms = search_stats.get("search_elapsed_ms", wall_elapsed_ms)
 
     if best_move is None:
         raise HTTPException(status_code=422, detail="AI không tìm được nước đi hợp lệ")
@@ -396,9 +407,29 @@ def get_ai_move(request: MoveRequest):
         max_depth=config["max_depth"],
         time_limit=config["time_limit"],
         elapsed_ms=round(elapsed_ms, 2),
-        completed_depth=engine.stats.completed_depth if isinstance(engine, AIEngineV3) else None,
-        used_fallback=engine.stats.used_fallback if isinstance(engine, AIEngineV3) else None,
-        nodes=engine.stats.nodes if isinstance(engine, AIEngineV3) else None,
+        completed_depth=(
+            engine.stats.completed_depth
+            if isinstance(engine, AIEngineV3)
+            else (
+                search_stats.get("completed_depth")
+                if search_stats
+                else getattr(engine, "completed_depth", None)
+            )
+        ),
+        used_fallback=(
+            engine.stats.used_fallback
+            if isinstance(engine, AIEngineV3)
+            else search_stats.get("completed_depth") == 0 if search_stats else None
+        ),
+        nodes=(
+            engine.stats.nodes
+            if isinstance(engine, AIEngineV3)
+            else (
+                search_stats.get("nodes")
+                if search_stats
+                else getattr(engine, "nodes", None)
+            )
+        ),
         qnodes=engine.stats.qnodes if isinstance(engine, AIEngineV3) else None,
         status=get_game_status(board, not request.is_red_turn),
     )
