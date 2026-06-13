@@ -1,9 +1,9 @@
 """Composite V3 evaluator with explainable feature breakdown."""
 
-from src.eval import Evaluator
-from src.engine_v3.evaluation.activity import evaluate_activity
-from src.engine_v3.evaluation.king_safety import evaluate_king_safety
-from src.move_gen import MoveGenerator
+from engines.v1.eval import Evaluator
+from engines.v3.evaluation.activity import evaluate_activity
+from engines.v3.evaluation.king_safety import evaluate_king_safety
+from core.move_gen import MoveGenerator
 
 
 class EvaluatorV3(Evaluator):

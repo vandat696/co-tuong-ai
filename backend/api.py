@@ -10,12 +10,12 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from src.ai_engine import AIEngine
-from src.board import Board
-from src.engine_v3 import AIEngineV3
-from src.engine_v3.evaluation import EvaluatorV3
-from src.eval import Evaluator
-from src.move_gen import MoveGenerator
+from engines.v1.ai_engine import AIEngine
+from core.board import Board
+from engines.v3 import AIEngineV3
+from engines.v3.evaluation import EvaluatorV3
+from engines.v1.eval import Evaluator
+from core.move_gen import MoveGenerator
 
 
 AI_VERSIONS = {
@@ -57,7 +57,7 @@ AI_VERSIONS = {
     },
 }
 
-WUKONG_BRIDGE = Path(__file__).parent / "references" / "wukong" / "bridge.js"
+WUKONG_BRIDGE = Path(__file__).parent / "engines" / "v2_wukong" / "bridge.js"
 
 
 class GameStateRequest(BaseModel):

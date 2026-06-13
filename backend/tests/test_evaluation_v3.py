@@ -1,5 +1,5 @@
-from src.board import Board
-from src.engine_v3.evaluation import EvaluatorV3
+from core.board import Board
+from engines.v3.evaluation import EvaluatorV3
 
 
 def board_with_kings():

@@ -2,7 +2,7 @@
 eval.py - Hàm đánh giá thế cờ (Evaluation function) với Tapered Evaluation
 """
 
-from src.board import Board
+from core.board import Board
 
 
 class Evaluator:

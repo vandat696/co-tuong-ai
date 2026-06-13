@@ -13,8 +13,8 @@ ROOT = BACKEND.parent
 sys.path.insert(0, str(BACKEND))
 
 from api import WUKONG_BRIDGE, board_to_fen  # noqa: E402
-from src.board import Board  # noqa: E402
-from src.engine_v3 import AIEngineV3  # noqa: E402
+from core.board import Board  # noqa: E402
+from engines.v3 import AIEngineV3  # noqa: E402
 
 
 def benchmark_v2(runs, time_limit):

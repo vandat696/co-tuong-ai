@@ -3,9 +3,9 @@ ai_engine.py - Minimax engine cho cờ tướng
 """
 
 import time
-from src.board import Board
-from src.move_gen import MoveGenerator
-from src.eval import Evaluator
+from core.board import Board
+from core.move_gen import MoveGenerator
+from engines.v1.eval import Evaluator
 
 
 class AIEngine:
