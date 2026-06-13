@@ -4,7 +4,7 @@ import time
 from dataclasses import dataclass
 
 from src.board import Board
-from src.eval import Evaluator
+from src.engine_v3.evaluation import EvaluatorV3
 from src.engine_v3.zobrist import ZobristHasher
 from src.move_gen import MoveGenerator
 
@@ -30,15 +30,17 @@ class SearchContext:
         self.board = board
         self.time_limit = time_limit
         self.move_gen = MoveGenerator(board)
-        self.evaluator = Evaluator(board)
+        self.evaluator = EvaluatorV3(board)
         self.zobrist = ZobristHasher()
         self.zobrist_key = 0
+        self.evaluation_cache = {}
         self.start_time = 0.0
 
     def start(self):
         self.start_time = time.perf_counter()
         self.evaluator._calculate_initial_score()
         self.zobrist_key = self.zobrist.hash_board(self.board)
+        self.evaluation_cache.clear()
 
     def check_time(self):
         if time.perf_counter() - self.start_time > self.time_limit:
@@ -112,7 +114,12 @@ class SearchContext:
         self.zobrist_key = undo.old_zobrist_key
 
     def evaluate_for_side(self, is_red_turn):
-        score = self.evaluator.evaluate()
+        score = self.evaluation_cache.get(self.zobrist_key)
+        if score is None:
+            score = self.evaluator.evaluate()
+            if len(self.evaluation_cache) >= 65_536:
+                self.evaluation_cache.clear()
+            self.evaluation_cache[self.zobrist_key] = score
         return score if is_red_turn else -score
 
     def is_in_check(self, is_red_turn):

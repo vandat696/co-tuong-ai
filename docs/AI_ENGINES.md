@@ -202,6 +202,21 @@ V3 kiểm tra trạng thái kết thúc trước khi đánh giá tĩnh. Trong qu
 quân. Check extension giúp theo chuỗi chiếu sâu hơn, còn mate-distance score giúp
 ưu tiên chiếu hết nhanh và trì hoãn bị chiếu hết.
 
+### Hàm đánh giá V3
+
+V3 giữ tapered material/PST của V1 làm nền và bổ sung các feature động:
+
+- Mobility của Mã, Pháo và Xe.
+- Phạt Mã theo số chân bị chặn.
+- Thưởng Xe xâm nhập sang phần bàn đối phương.
+- Thưởng Pháo có ngòi gây áp lực lên quân hoặc Tướng.
+- King Safety dựa trên Sĩ/Tượng gần Tướng, quân tấn công quanh cung và trạng thái bị chiếu.
+
+Mỗi feature trả về điểm MG/EG riêng rồi được nội suy theo phase. Mã nguồn nằm trong
+`backend/src/engine_v3/evaluation/`; `EvaluatorV3.evaluate_breakdown()` trả breakdown
+để test và điều chỉnh trọng số. Vì feature động phải quét quan hệ giữa các quân nên
+đắt hơn evaluator V1; V3 dùng cache theo Zobrist để tránh tính lại cùng một thế.
+
 Các tối ưu tìm kiếm lấy ý tưởng từ Wukong đã được đưa vào V3:
 
 - Zobrist Hashing gia tăng và TT giới hạn kích thước.
@@ -229,7 +244,7 @@ chiếu cũng được bảo vệ khỏi Futility Pruning và LMR.
 | Aspiration Windows | Chưa có | Chưa có | Có |
 | Null Move / Futility / LMR / PVS | Chưa có | Có | Có |
 | Razoring / Reverse Futility | Chưa có | Có | Có |
-| Hàm đánh giá | Tapered material + PST | Material + PST | Tapered material + PST |
+| Hàm đánh giá | Tapered material + PST | Material + PST | Tapered material/PST + activity + King Safety |
 | Vai trò | Baseline Python | Engine đối chiếu độc lập | Engine Python xử lý chiếu hết |
 
 Không nên kết luận engine mạnh hơn chỉ dựa vào số lượng thuật toán. Độ chính xác

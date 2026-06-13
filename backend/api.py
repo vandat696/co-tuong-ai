@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from src.ai_engine import AIEngine
 from src.board import Board
 from src.engine_v3 import AIEngineV3
+from src.engine_v3.evaluation import EvaluatorV3
 from src.eval import Evaluator
 from src.move_gen import MoveGenerator
 
@@ -50,7 +51,7 @@ AI_VERSIONS = {
         "engine": "Python",
         "runner": "python_v3",
         "search": "Negamax, Alpha-Beta, IDS, Zobrist TT, PVS, LMR, Null Move, Futility, Razoring, Killer/History và quiescence có xử lý chiếu.",
-        "evaluation": "Tapered Evaluation của V1, kết hợp mate-distance score để ưu tiên chiếu hết nhanh.",
+        "evaluation": "Tapered material/PST kết hợp mobility, chân Mã, hoạt động Xe/Pháo và King Safety.",
         "max_depth": 5,
         "time_limit": 0.5,
     },
@@ -374,7 +375,8 @@ def get_ai_move(request: MoveRequest):
         from_row, from_col, to_row, to_col = best_move
 
     board.move_piece(from_row, from_col, to_row, to_col)
-    score = Evaluator(board).evaluate()
+    evaluator_class = EvaluatorV3 if config["runner"] == "python_v3" else Evaluator
+    score = evaluator_class(board).evaluate()
 
     return MoveResponse(
         from_row=from_row,

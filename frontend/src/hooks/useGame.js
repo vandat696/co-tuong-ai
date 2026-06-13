@@ -37,7 +37,7 @@ const FALLBACK_AI_VERSIONS = [
     engine: "Python",
     runner: "python_v3",
     search: "Negamax, Alpha-Beta, Zobrist TT, PVS, LMR, Null Move, Futility, Razoring và quiescence có xử lý chiếu.",
-    evaluation: "Tapered Evaluation kết hợp mate-distance score.",
+    evaluation: "Tapered material/PST kết hợp mobility, chân Mã, hoạt động Xe/Pháo và King Safety.",
     max_depth: 5,
     time_limit: 0.5,
   },

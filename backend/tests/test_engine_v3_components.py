@@ -47,3 +47,17 @@ def test_killer_and_history_prioritize_quiet_cutoff():
 
     assert engine.ordering.is_killer(cutoff_move, 2)
     assert ordered[0] == cutoff_move
+
+
+def test_evaluation_cache_reuses_same_zobrist_position():
+    board = Board()
+    engine = AIEngineV3(board, time_limit=10)
+    engine.context.start()
+
+    first = engine.context.evaluate_for_side(True)
+    engine.context.evaluator.evaluate = lambda: (_ for _ in ()).throw(
+        AssertionError("evaluation should have been cached")
+    )
+
+    assert engine.context.evaluate_for_side(True) == first
+    assert engine.context.evaluate_for_side(False) == -first
