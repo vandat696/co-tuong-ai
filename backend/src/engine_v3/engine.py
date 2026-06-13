@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 
 from src.engine_v3.context import SearchContext, SearchTimeout
+from src.engine_v3.move import move_to_coordinates
 from src.engine_v3.ordering import MoveOrdering
 from src.engine_v3.transposition import EXACT, LOWER, UPPER, TranspositionTable
 
@@ -11,6 +12,7 @@ MATE_SCORE = 100_000
 MATE_THRESHOLD = 99_000
 INFINITY = 110_000
 MAX_PLY = 80
+MAX_QUIESCENCE_PLY = 12
 ASPIRATION_WINDOW = 50
 
 
@@ -25,6 +27,8 @@ class SearchStats:
     razor_prunes: int = 0
     lmr_reductions: int = 0
     pvs_researches: int = 0
+    completed_depth: int = 0
+    used_fallback: bool = True
 
 
 class AIEngineV3:
@@ -48,7 +52,7 @@ class AIEngineV3:
         if not fallback_moves:
             return None
 
-        best_move = fallback_moves[0]
+        best_move = self._best_static_fallback(fallback_moves, is_red_turn)
         previous_best = None
         previous_score = 0
 
@@ -67,11 +71,37 @@ class AIEngineV3:
                 best_move = iteration_best
                 previous_best = iteration_best
                 previous_score = score
+                self.stats.completed_depth = depth
+                self.stats.used_fallback = False
 
             if abs(previous_score) >= MATE_THRESHOLD:
                 break
 
+        return move_to_coordinates(best_move)
+
+    def _best_static_fallback(self, moves, is_red_turn):
+        best_move = moves[0]
+        best_score = -INFINITY
+
+        for move in moves:
+            moved_piece = self.context.piece_at_source(move)
+            undo = self.context.push(move, sync_board=True)
+            try:
+                score = -self.context.evaluate_for_side(not is_red_turn, dynamic=True)
+                to_row, to_col = self.context.move_target(move)
+                if self._is_square_attacked(to_row, to_col, not is_red_turn):
+                    score -= self.context.evaluator.get_piece_value(moved_piece)
+            finally:
+                self.context.pop(undo)
+
+            if score > best_score:
+                best_score = score
+                best_move = move
+
         return best_move
+
+    def _is_square_attacked(self, target_row, target_col, by_red):
+        return self.context.is_square_attacked(target_row, target_col, by_red)
 
     def _aspiration_search(self, depth, is_red_turn, previous_best, previous_score):
         if depth <= 1:
@@ -107,15 +137,20 @@ class AIEngineV3:
         best_score = -INFINITY
         best_move = None
         moves = self.ordering.ordered(
-            self.board,
-            self.context.legal_moves(is_red_turn),
+            self.context.position,
+            self.context.pseudo_moves(is_red_turn),
             0,
             previous_best,
         )
 
-        for move_index, move in enumerate(moves):
+        legal_count = 0
+        for move in moves:
             self.context.check_time()
             undo = self.context.push(move)
+            if undo is None:
+                continue
+            move_index = legal_count
+            legal_count += 1
             try:
                 if move_index == 0:
                     score = -self._negamax(
@@ -188,13 +223,13 @@ class AIEngineV3:
                 self.stats.tt_hits += 1
                 return score
 
-        moves = self.context.legal_moves(is_red_turn)
-        if not moves:
-            return -MATE_SCORE + ply
-
         in_check = self.context.is_in_check(is_red_turn)
         if depth <= 0:
-            return self._quiescence(alpha, beta, is_red_turn, ply, moves, in_check)
+            return self._quiescence(alpha, beta, is_red_turn, ply, in_check=in_check)
+
+        moves = self.context.pseudo_moves(is_red_turn)
+        if not moves:
+            return -MATE_SCORE + ply
         if in_check:
             depth += 1
 
@@ -244,12 +279,17 @@ class AIEngineV3:
         original_alpha = alpha
         best_move = None
         best_score = -INFINITY
-        ordered_moves = self.ordering.ordered(self.board, moves, ply, tt_move)
+        legal_count = 0
+        ordered_moves = self.ordering.ordered(self.context.position, moves, ply, tt_move)
 
-        for move_index, move in enumerate(ordered_moves):
+        for move in ordered_moves:
             is_capture = self.context.is_capture(move)
             is_killer = self.ordering.is_killer(move, ply)
             undo = self.context.push(move)
+            if undo is None:
+                continue
+            move_index = legal_count
+            legal_count += 1
             try:
                 gives_check = self.context.is_in_check(not is_red_turn)
 
@@ -320,8 +360,13 @@ class AIEngineV3:
             if alpha >= beta:
                 self.stats.beta_cutoffs += 1
                 if not is_capture:
-                    self.ordering.record_quiet_cutoff(self.board, move, depth, ply)
+                    self.ordering.record_quiet_cutoff(
+                        self.context.position, move, depth, ply
+                    )
                 break
+
+        if legal_count == 0:
+            return -MATE_SCORE + ply
 
         if best_score <= original_alpha:
             flag = UPPER
@@ -332,7 +377,16 @@ class AIEngineV3:
         self.tt.store(key, depth, best_score, flag, best_move, ply)
         return best_score
 
-    def _quiescence(self, alpha, beta, is_red_turn, ply, moves=None, in_check=None):
+    def _quiescence(
+        self,
+        alpha,
+        beta,
+        is_red_turn,
+        ply,
+        moves=None,
+        in_check=None,
+        qply=0,
+    ):
         self.context.check_time()
         self.stats.qnodes += 1
 
@@ -345,31 +399,43 @@ class AIEngineV3:
         if self.context.is_draw():
             return 0
 
-        if moves is None:
-            moves = self.context.legal_moves(is_red_turn)
-        if not moves:
-            return -MATE_SCORE + ply
-
         if in_check is None:
             in_check = self.context.is_in_check(is_red_turn)
 
+        if qply >= MAX_QUIESCENCE_PLY and not in_check:
+            return self.context.evaluate_for_side(is_red_turn)
+
         if in_check:
+            if moves is None:
+                moves = self.context.pseudo_moves(is_red_turn)
+            if not moves:
+                return -MATE_SCORE + ply
             candidates = moves
         else:
             stand_pat = self.context.evaluate_for_side(is_red_turn)
             if stand_pat >= beta:
                 return beta
             alpha = max(alpha, stand_pat)
-            candidates = [move for move in moves if self.context.is_capture(move)]
+            if moves is None:
+                candidates = self.context.pseudo_moves(is_red_turn, captures_only=True)
+                if not candidates and not self.context.has_legal_move(is_red_turn):
+                    return -MATE_SCORE + ply
+            else:
+                candidates = [move for move in moves if self.context.is_capture(move)]
 
-        for move in self.ordering.ordered(self.board, candidates, ply):
+        legal_count = 0
+        for move in self.ordering.ordered(self.context.position, candidates, ply):
             undo = self.context.push(move)
+            if undo is None:
+                continue
+            legal_count += 1
             try:
                 score = -self._quiescence(
                     -beta,
                     -alpha,
                     not is_red_turn,
                     ply + 1,
+                    qply=qply + 1,
                 )
             finally:
                 self.context.pop(undo)
@@ -378,4 +444,6 @@ class AIEngineV3:
                 return beta
             alpha = max(alpha, score)
 
+        if in_check and legal_count == 0:
+            return -MATE_SCORE + ply
         return alpha

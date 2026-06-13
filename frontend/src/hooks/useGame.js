@@ -37,8 +37,8 @@ const FALLBACK_AI_VERSIONS = [
     engine: "Python",
     runner: "python_v3",
     search: "Negamax, Alpha-Beta, Zobrist TT, PVS, LMR, Null Move, Futility, Razoring và quiescence có xử lý chiếu.",
-    evaluation: "Tapered material/PST kết hợp mobility, chân Mã, hoạt động Xe/Pháo và King Safety.",
-    max_depth: 5,
+    evaluation: "Hybrid: tapered material/PST nhanh trong search; activity và King Safety dùng cho phân tích/fallback.",
+    max_depth: 3,
     time_limit: 0.5,
   },
 ];
@@ -262,6 +262,10 @@ export const useGame = () => {
             to: [aiMove.to_row, aiMove.to_col],
             elapsedMs: aiMove.elapsed_ms,
             score: aiMove.score,
+            completedDepth: aiMove.completed_depth,
+            usedFallback: aiMove.used_fallback,
+            nodes: aiMove.nodes,
+            qnodes: aiMove.qnodes,
           },
         ]);
         setStats((current) => ({

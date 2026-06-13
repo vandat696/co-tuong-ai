@@ -51,8 +51,8 @@ AI_VERSIONS = {
         "engine": "Python",
         "runner": "python_v3",
         "search": "Negamax, Alpha-Beta, IDS, Zobrist TT, PVS, LMR, Null Move, Futility, Razoring, Killer/History và quiescence có xử lý chiếu.",
-        "evaluation": "Tapered material/PST kết hợp mobility, chân Mã, hoạt động Xe/Pháo và King Safety.",
-        "max_depth": 5,
+        "evaluation": "Hybrid: tapered material/PST nhanh trong search; activity và King Safety dùng cho phân tích/fallback.",
+        "max_depth": 3,
         "time_limit": 0.5,
     },
 }
@@ -127,6 +127,10 @@ class MoveResponse(PlayerMoveResponse):
     max_depth: int
     time_limit: float
     elapsed_ms: float
+    completed_depth: Optional[int] = None
+    used_fallback: Optional[bool] = None
+    nodes: Optional[int] = None
+    qnodes: Optional[int] = None
 
 
 app = FastAPI(title="Xiangqi AI", version="1.1.0")
@@ -339,6 +343,7 @@ def get_ai_move(request: MoveRequest):
     board = build_board(request)
 
     started_at = time.perf_counter()
+    engine = None
     if config["runner"] == "wukong":
         best_move = get_wukong_move(request, config)
     else:
@@ -391,6 +396,10 @@ def get_ai_move(request: MoveRequest):
         max_depth=config["max_depth"],
         time_limit=config["time_limit"],
         elapsed_ms=round(elapsed_ms, 2),
+        completed_depth=engine.stats.completed_depth if isinstance(engine, AIEngineV3) else None,
+        used_fallback=engine.stats.used_fallback if isinstance(engine, AIEngineV3) else None,
+        nodes=engine.stats.nodes if isinstance(engine, AIEngineV3) else None,
+        qnodes=engine.stats.qnodes if isinstance(engine, AIEngineV3) else None,
         status=get_game_status(board, not request.is_red_turn),
     )
 

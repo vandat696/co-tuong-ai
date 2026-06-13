@@ -1,15 +1,16 @@
-"""Shared board operations for the V3 search."""
+"""Shared one-dimensional position operations for the V3 search."""
 
 import time
 from dataclasses import dataclass
 
 from src.board import Board
 from src.engine_v3.evaluation import EvaluatorV3
+from src.engine_v3.move import coordinates, source_square, target_square
+from src.engine_v3.position import PositionUndo, PositionV3
 from src.engine_v3.zobrist import ZobristHasher
-from src.move_gen import MoveGenerator
 
 
-Move = tuple[int, int, int, int]
+Move = int
 
 
 class SearchTimeout(Exception):
@@ -18,138 +19,153 @@ class SearchTimeout(Exception):
 
 @dataclass
 class UndoState:
-    move: Move
-    piece: int
-    captured_piece: int
-    old_clock: int
-    old_zobrist_key: int
+    position_undo: PositionUndo
+    synced_board: bool
 
 
 class SearchContext:
     def __init__(self, board, time_limit):
         self.board = board
         self.time_limit = time_limit
-        self.move_gen = MoveGenerator(board)
         self.evaluator = EvaluatorV3(board)
         self.zobrist = ZobristHasher()
-        self.zobrist_key = 0
+        self.position = None
         self.evaluation_cache = {}
+        self.fast_evaluation_cache = {}
         self.start_time = 0.0
+
+    @property
+    def zobrist_key(self):
+        return self.position.zobrist_key
+
+    @property
+    def repetition_counts(self):
+        return self.position.repetition_counts
+
+    @property
+    def king_positions(self):
+        return {
+            side: None if index is None else coordinates(index)
+            for side, index in self.position.king_squares.items()
+        }
 
     def start(self):
         self.start_time = time.perf_counter()
         self.evaluator._calculate_initial_score()
-        self.zobrist_key = self.zobrist.hash_board(self.board)
+        self.position = PositionV3(self.board, self.zobrist)
         self.evaluation_cache.clear()
+        self.fast_evaluation_cache.clear()
 
     def check_time(self):
         if time.perf_counter() - self.start_time > self.time_limit:
             raise SearchTimeout
 
-    def legal_moves(self, is_red_turn):
-        moves = []
-        for row in range(self.board.BOARD_ROWS):
-            for col in range(self.board.BOARD_COLS):
-                piece = self.board.get_piece(row, col)
-                if piece == Board.EMPTY or (piece > 0) != is_red_turn:
-                    continue
+    def pseudo_moves(self, is_red_turn, captures_only=False):
+        return self.position.generate_moves(is_red_turn, captures_only)
 
-                for to_row, to_col in self.move_gen.generate_moves(row, col):
-                    move = (row, col, to_row, to_col)
-                    if not self.board.would_repeat_threefold(*move):
-                        moves.append(move)
+    def legal_moves(self, is_red_turn, captures_only=False):
+        moves = []
+        for move in self.pseudo_moves(is_red_turn, captures_only):
+            undo = self.position.make_move(move, is_red_turn)
+            if undo is not None:
+                moves.append(move)
+                self.position.unmake_move(undo)
         return moves
 
+    def has_legal_move(self, is_red_turn):
+        for move in self.pseudo_moves(is_red_turn):
+            undo = self.position.make_move(move, is_red_turn)
+            if undo is not None:
+                self.position.unmake_move(undo)
+                return True
+        return False
+
     def is_capture(self, move):
-        return self.board.get_piece(move[2], move[3]) != Board.EMPTY
+        return self.position.squares[target_square(move)] != Board.EMPTY
 
-    def push(self, move):
-        from_row, from_col, to_row, to_col = move
-        piece = self.board.get_piece(from_row, from_col)
-        captured_piece = self.board.get_piece(to_row, to_col)
-        undo = UndoState(
-            move,
-            piece,
-            captured_piece,
-            self.board.half_move_clock,
-            self.zobrist_key,
-        )
+    def piece_at_source(self, move):
+        return self.position.squares[source_square(move)]
 
+    def move_target(self, move):
+        return coordinates(target_square(move))
+
+    def push(self, move, is_red_turn=None, sync_board=False):
+        piece = self.position.squares[source_square(move)]
+        moving_side = piece > 0 if is_red_turn is None else is_red_turn
+        position_undo = self.position.make_move(move, moving_side)
+        if position_undo is None:
+            return None
+
+        from_row, from_col = coordinates(source_square(move))
+        to_row, to_col = coordinates(target_square(move))
         self.evaluator.update_move(
             from_row,
             from_col,
             to_row,
             to_col,
-            piece,
-            captured_piece,
+            position_undo.piece,
+            position_undo.captured_piece,
         )
-        self.zobrist_key = self.zobrist.update_move(
-            self.zobrist_key,
-            move,
-            piece,
-            captured_piece,
-        )
-        self.board.move_piece(from_row, from_col, to_row, to_col)
-        return undo
+        if sync_board:
+            self.board.board[to_row][to_col] = position_undo.piece
+            self.board.board[from_row][from_col] = Board.EMPTY
+            self.board.half_move_clock = self.position.half_move_clock
+        return UndoState(position_undo, sync_board)
 
     def pop(self, undo):
-        from_row, from_col, to_row, to_col = undo.move
-        self.board.undo_move(
-            from_row,
-            from_col,
-            to_row,
-            to_col,
-            undo.piece,
-            undo.captured_piece,
-            undo.old_clock,
-        )
+        position_undo = undo.position_undo
+        from_row, from_col = coordinates(source_square(position_undo.move))
+        to_row, to_col = coordinates(target_square(position_undo.move))
+        self.position.unmake_move(position_undo)
+        if undo.synced_board:
+            self.board.board[from_row][from_col] = position_undo.piece
+            self.board.board[to_row][to_col] = position_undo.captured_piece
+            self.board.half_move_clock = position_undo.old_clock
         self.evaluator.undo_update_move(
             from_row,
             from_col,
             to_row,
             to_col,
-            undo.piece,
-            undo.captured_piece,
+            position_undo.piece,
+            position_undo.captured_piece,
         )
-        self.zobrist_key = undo.old_zobrist_key
 
-    def evaluate_for_side(self, is_red_turn):
-        score = self.evaluation_cache.get(self.zobrist_key)
+    def evaluate_for_side(self, is_red_turn, dynamic=False):
+        cache = self.evaluation_cache if dynamic else self.fast_evaluation_cache
+        score = cache.get(self.zobrist_key)
         if score is None:
-            score = self.evaluator.evaluate()
-            if len(self.evaluation_cache) >= 65_536:
-                self.evaluation_cache.clear()
-            self.evaluation_cache[self.zobrist_key] = score
+            score = self.evaluator.evaluate() if dynamic else self.evaluator.evaluate_fast()
+            if len(cache) >= 65_536:
+                cache.clear()
+            cache[self.zobrist_key] = score
         return score if is_red_turn else -score
 
     def is_in_check(self, is_red_turn):
-        color = "red" if is_red_turn else "black"
-        return self.move_gen.is_king_in_check(color)
+        return self.position.is_in_check(is_red_turn)
+
+    def is_square_attacked(self, row, col, by_red):
+        return self.position.is_square_attacked(row * 9 + col, by_red)
 
     def game_result_for_side(self, is_red_turn):
-        result = self.board.is_game_over()
-        if result is None:
-            return None
-        current_side_won = result == ("red_win" if is_red_turn else "black_win")
-        return 1 if current_side_won else -1
+        if self.position.king_squares[is_red_turn] is None:
+            return -1
+        if self.position.king_squares[not is_red_turn] is None:
+            return 1
+        return None
 
     def is_draw(self):
-        if self.board.half_move_clock >= 120:
-            return True
-        state_hash = self.board.get_state_hash()
-        return self.board.history.count(state_hash) >= 3
+        return (
+            self.position.half_move_clock >= 120
+            or self.repetition_counts[self.zobrist_key] >= 3
+        )
 
     def state_key(self, is_red_turn):
         return self.zobrist.position_key(self.zobrist_key, is_red_turn)
 
     def has_non_pawn_material(self, is_red_turn):
-        for row in range(self.board.BOARD_ROWS):
-            for col in range(self.board.BOARD_COLS):
-                piece = self.board.get_piece(row, col)
-                if (
-                    piece != Board.EMPTY
-                    and (piece > 0) == is_red_turn
-                    and abs(piece) not in (Board.RED_KING, Board.RED_PAWN)
-                ):
-                    return True
-        return False
+        return any(
+            piece != Board.EMPTY
+            and (piece > 0) == is_red_turn
+            and abs(piece) not in (Board.RED_KING, Board.RED_PAWN)
+            for piece in self.position.squares
+        )

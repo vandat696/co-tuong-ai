@@ -1,6 +1,7 @@
 """Move ordering heuristics for V3."""
 
 from src.board import Board
+from src.engine_v3.move import source_square, target_square
 
 
 class MoveOrdering:
@@ -14,20 +15,20 @@ class MoveOrdering:
         self.killers = [[None, None] for _ in range(self.max_ply)]
         self.history.clear()
 
-    def ordered(self, board, moves, ply, preferred_move=None):
+    def ordered(self, position, moves, ply, preferred_move=None):
         return sorted(
             moves,
-            key=lambda move: self.score(board, move, ply, preferred_move),
+            key=lambda move: self.score(position, move, ply, preferred_move),
             reverse=True,
         )
 
-    def score(self, board, move, ply, preferred_move=None):
+    def score(self, position, move, ply, preferred_move=None):
         if move == preferred_move:
             return 1_000_000
 
-        captured = board.get_piece(move[2], move[3])
+        captured = position.squares[target_square(move)]
         if captured != Board.EMPTY:
-            attacker = board.get_piece(move[0], move[1])
+            attacker = position.squares[source_square(move)]
             values = self.evaluator.MG_PIECE_VALUES
             return (
                 100_000
@@ -41,16 +42,16 @@ class MoveOrdering:
             if move == self.killers[ply][1]:
                 return 80_000
 
-        piece = board.get_piece(move[0], move[1])
-        return self.history.get((piece, move[2], move[3]), 0)
+        piece = position.squares[source_square(move)]
+        return self.history.get((piece, target_square(move)), 0)
 
-    def record_quiet_cutoff(self, board, move, depth, ply):
+    def record_quiet_cutoff(self, position, move, depth, ply):
         if ply < self.max_ply and move != self.killers[ply][0]:
             self.killers[ply][1] = self.killers[ply][0]
             self.killers[ply][0] = move
 
-        piece = board.get_piece(move[0], move[1])
-        key = (piece, move[2], move[3])
+        piece = position.squares[source_square(move)]
+        key = (piece, target_square(move))
         self.history[key] = min(75_000, self.history.get(key, 0) + depth * depth)
 
     def is_killer(self, move, ply):

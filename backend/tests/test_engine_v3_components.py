@@ -1,7 +1,9 @@
 from src.board import Board
 from src.engine_v3 import AIEngineV3
 from src.engine_v3.engine import MATE_SCORE, MATE_THRESHOLD
+from src.engine_v3.move import move_from_coordinates, move_to_coordinates, target_square
 from src.engine_v3.transposition import EXACT, TranspositionTable
+from src.move_gen import MoveGenerator
 
 
 def test_zobrist_hash_updates_and_restores_with_move():
@@ -13,12 +15,16 @@ def test_zobrist_hash_updates_and_restores_with_move():
 
     undo = engine.context.push(move)
 
-    assert engine.context.zobrist_key == engine.context.zobrist.hash_board(board)
+    assert engine.context.zobrist_key == engine.context.zobrist.hash_squares(
+        engine.context.position.squares
+    )
 
     engine.context.pop(undo)
 
     assert engine.context.zobrist_key == original_key
-    assert engine.context.zobrist_key == engine.context.zobrist.hash_board(board)
+    assert engine.context.zobrist_key == engine.context.zobrist.hash_squares(
+        engine.context.position.squares
+    )
 
 
 def test_transposition_table_normalizes_mate_distance():
@@ -42,8 +48,10 @@ def test_killer_and_history_prioritize_quiet_cutoff():
     ]
     cutoff_move = quiet_moves[-1]
 
-    engine.ordering.record_quiet_cutoff(board, cutoff_move, depth=4, ply=2)
-    ordered = engine.ordering.ordered(board, quiet_moves, ply=2)
+    engine.ordering.record_quiet_cutoff(
+        engine.context.position, cutoff_move, depth=4, ply=2
+    )
+    ordered = engine.ordering.ordered(engine.context.position, quiet_moves, ply=2)
 
     assert engine.ordering.is_killer(cutoff_move, 2)
     assert ordered[0] == cutoff_move
@@ -54,10 +62,82 @@ def test_evaluation_cache_reuses_same_zobrist_position():
     engine = AIEngineV3(board, time_limit=10)
     engine.context.start()
 
-    first = engine.context.evaluate_for_side(True)
+    first = engine.context.evaluate_for_side(True, dynamic=True)
     engine.context.evaluator.evaluate = lambda: (_ for _ in ()).throw(
-        AssertionError("evaluation should have been cached")
+        AssertionError("dynamic evaluation should have been cached")
+    )
+
+    assert engine.context.evaluate_for_side(True, dynamic=True) == first
+    assert engine.context.evaluate_for_side(False, dynamic=True) == -first
+
+
+def test_fast_evaluation_cache_reuses_same_zobrist_position():
+    board = Board()
+    engine = AIEngineV3(board, time_limit=10)
+    engine.context.start()
+
+    first = engine.context.evaluate_for_side(True)
+    engine.context.evaluator.evaluate_fast = lambda: (_ for _ in ()).throw(
+        AssertionError("fast evaluation should have been cached")
     )
 
     assert engine.context.evaluate_for_side(True) == first
     assert engine.context.evaluate_for_side(False) == -first
+
+
+def test_capture_only_move_generation_is_subset_of_legal_moves():
+    board = Board()
+    engine = AIEngineV3(board, time_limit=10)
+    engine.context.start()
+
+    all_moves = set(engine.context.legal_moves(True))
+    captures = set(engine.context.legal_moves(True, captures_only=True))
+
+    assert captures <= all_moves
+    assert all(
+        engine.context.position.squares[target_square(move)] != Board.EMPTY
+        for move in captures
+    )
+
+
+def test_fast_move_generation_matches_authoritative_generator():
+    board = Board()
+    engine = AIEngineV3(board, time_limit=10)
+    engine.context.start()
+    authoritative = MoveGenerator(board)
+    expected = set()
+
+    for row in range(board.BOARD_ROWS):
+        for col in range(board.BOARD_COLS):
+            piece = board.get_piece(row, col)
+            if piece > 0:
+                expected.update(
+                    move_from_coordinates(row, col, to_row, to_col)
+                    for to_row, to_col in authoritative.generate_moves(row, col)
+                )
+
+    assert set(engine.context.legal_moves(True)) == expected
+
+
+def test_search_push_pop_does_not_serialize_board_history():
+    board = Board()
+    engine = AIEngineV3(board, time_limit=10)
+    engine.context.start()
+    original_history = list(board.history)
+    original_counts = engine.context.repetition_counts.copy()
+
+    undo = engine.context.push(engine.context.legal_moves(True)[0])
+    engine.context.pop(undo)
+
+    assert board.history == original_history
+    assert engine.context.repetition_counts == original_counts
+
+
+def test_v3_search_core_uses_flat_board_and_integer_moves():
+    engine = AIEngineV3(Board(), time_limit=10)
+    engine.context.start()
+    moves = engine.context.legal_moves(True)
+
+    assert len(engine.context.position.squares) == 90
+    assert all(isinstance(move, int) for move in moves)
+    assert all(len(move_to_coordinates(move)) == 4 for move in moves)

@@ -83,3 +83,23 @@ def test_engine_finds_mate_in_one_at_search_horizon():
     engine = AIEngineV3(board, max_depth=1, time_limit=10)
 
     assert engine.get_best_move(True) == (2, 4, 1, 4)
+
+
+def test_timeout_fallback_is_selected_by_evaluation_not_board_scan_order():
+    engine = AIEngineV3(Board(), max_depth=5, time_limit=0)
+
+    move = engine.get_best_move(True)
+
+    assert move != (6, 0, 5, 0)
+    assert move != (7, 1, 0, 1)
+    assert engine.stats.used_fallback is True
+    assert engine.stats.completed_depth == 0
+
+
+def test_completed_iteration_reports_search_depth():
+    engine = AIEngineV3(Board(), max_depth=1, time_limit=10)
+
+    engine.get_best_move(True)
+
+    assert engine.stats.used_fallback is False
+    assert engine.stats.completed_depth == 1

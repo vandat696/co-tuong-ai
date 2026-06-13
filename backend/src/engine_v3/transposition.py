@@ -14,7 +14,7 @@ class TTEntry:
     depth: int
     score: int
     flag: str
-    best_move: tuple[int, int, int, int] | None
+    best_move: int | None
 
 
 class TranspositionTable:

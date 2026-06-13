@@ -16,6 +16,10 @@ class EvaluatorV3(Evaluator):
     def evaluate(self):
         return self.evaluate_breakdown()["total"]
 
+    def evaluate_fast(self):
+        """Cheap tapered material/PST score for deep search nodes."""
+        return super().evaluate()
+
     def evaluate_breakdown(self):
         phase = max(0, min(16, self.phase))
         base = super().evaluate()

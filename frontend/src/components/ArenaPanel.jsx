@@ -34,6 +34,11 @@ const ArenaPanel = ({ game }) => {
   const coordinate = ([row, col]) =>
     `${String.fromCharCode("a".charCodeAt(0) + col)}${9 - row}`;
 
+  const evaluationLabel = (score) => {
+    if (score === 0) return "cân bằng";
+    return score > 0 ? `Đỏ lợi +${score}` : `Đen lợi +${Math.abs(score)}`;
+  };
+
   return (
     <aside className="arena-panel">
 
@@ -141,7 +146,21 @@ const ArenaPanel = ({ game }) => {
               <span className="move-arrow">→</span>
               <code className="move-to">{coordinate(move.to)}</code>
               <span className="move-meta">
-                {move.elapsedMs ? `${Math.round(move.elapsedMs)} ms · điểm ${move.score}` : "người chơi"}
+                {move.elapsedMs !== undefined
+                  ? [
+                      `${Math.round(move.elapsedMs)} ms`,
+                      move.completedDepth !== null && move.completedDepth !== undefined
+                        ? `depth ${move.completedDepth}`
+                        : null,
+                      move.usedFallback ? "fallback" : null,
+                      move.nodes !== null && move.nodes !== undefined
+                        ? `${move.nodes + (move.qnodes || 0)} nodes`
+                        : null,
+                      evaluationLabel(move.score),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")
+                  : "người chơi"}
               </span>
             </div>
           ))

@@ -3,6 +3,9 @@
 Tài liệu này mô tả các engine thực sự đang có trong dự án, cách chúng hoạt động và
 vai trò của từng thuật toán.
 
+Bản tóm tắt dùng để thuyết trình và trả lời phản biện nằm tại
+[`AI_VERSION_DEFENSE.md`](AI_VERSION_DEFENSE.md).
+
 ## Danh sách engine
 
 Hiện tại dự án có ba implementation AI:
@@ -204,7 +207,9 @@ quân. Check extension giúp theo chuỗi chiếu sâu hơn, còn mate-distance 
 
 ### Hàm đánh giá V3
 
-V3 giữ tapered material/PST của V1 làm nền và bổ sung các feature động:
+V3 dùng evaluation lai. Trong search sâu, engine dùng tapered material/PST nhanh
+của V1 để đạt depth cao hơn. Evaluation động được dùng cho breakdown, phân tích và
+fallback khi chưa hoàn thành vòng iterative deepening:
 
 - Mobility của Mã, Pháo và Xe.
 - Phạt Mã theo số chân bị chặn.
@@ -212,7 +217,7 @@ V3 giữ tapered material/PST của V1 làm nền và bổ sung các feature đ�
 - Thưởng Pháo có ngòi gây áp lực lên quân hoặc Tướng.
 - King Safety dựa trên Sĩ/Tượng gần Tướng, quân tấn công quanh cung và trạng thái bị chiếu.
 
-Mỗi feature trả về điểm MG/EG riêng rồi được nội suy theo phase. Mã nguồn nằm trong
+Mỗi feature động trả về điểm MG/EG riêng rồi được nội suy theo phase. Mã nguồn nằm trong
 `backend/src/engine_v3/evaluation/`; `EvaluatorV3.evaluate_breakdown()` trả breakdown
 để test và điều chỉnh trọng số. Vì feature động phải quét quan hệ giữa các quân nên
 đắt hơn evaluator V1; V3 dùng cache theo Zobrist để tránh tính lại cùng một thế.
@@ -224,6 +229,16 @@ Các tối ưu tìm kiếm lấy ý tưởng từ Wukong đã được đưa và
 - Aspiration Windows và Principal Variation Search.
 - Late Move Reduction.
 - Null Move, Futility Pruning, Razoring và reverse futility pruning.
+
+V3 còn bám sát vòng lặp nhanh của Wukong hơn: sinh nước giả hợp lệ, thử legality
+nhẹ, cache vị trí hai Tướng, phát hiện chiếu trực tiếp và đếm lặp thế bằng Zobrist
+gia tăng. Search không còn serialize `Board.history` sau mỗi nước ứng viên.
+
+Lõi search V3 dùng `PositionV3`: bàn cờ là mảng một chiều 90 ô và mỗi nước đi là
+một số nguyên đóng gói ô nguồn/ô đích. `generate_moves()` chỉ sinh pseudo-legal
+moves; `make_move()` cập nhật bàn, vị trí Tướng, half-move clock và Zobrist rồi
+hoàn tác ngay nếu nước đi để Tướng bị chiếu hoặc tạo lặp thế lần ba. Bàn 2D chỉ
+được giữ tại biên API và khi evaluation động cần phân tích thế cờ.
 
 Selective pruning chỉ chạy khi bên đến lượt không bị chiếu. Nước ăn quân và nước
 chiếu cũng được bảo vệ khỏi Futility Pruning và LMR.
@@ -923,6 +938,7 @@ coi nó là một phiên bản AI riêng.
 
 - Trạng thái ván hiện vẫn được frontend gửi kèm mỗi request; backend chưa lưu session ván đấu.
 - Chưa có hệ thống đấu hàng trăm ván và tính Elo.
-- Chưa lưu thống kê nodes, nodes/second, độ sâu hoàn thành hoặc số lần trúng TT.
+- API V3 đã trả nodes, qnodes và độ sâu hoàn thành cho từng nước, nhưng chưa tổng
+  hợp nodes/second, TT hit rate và kết quả đấu nhiều ván thành báo cáo benchmark.
 - AI Python chưa có giao diện UCI.
 - Source code lịch sử của các phiên bản Python cũ chưa được lưu riêng.
