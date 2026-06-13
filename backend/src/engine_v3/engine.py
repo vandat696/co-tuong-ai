@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 from src.engine_v3.context import SearchContext, SearchTimeout
 from src.engine_v3.move import move_to_coordinates
-from src.engine_v3.ordering import MoveOrdering
+from src.engine_v3.ordering import PIECE_VALUES, MoveOrdering
 from src.engine_v3.transposition import EXACT, LOWER, UPPER, TranspositionTable
 
 
@@ -85,9 +85,9 @@ class AIEngineV3:
 
         for move in moves:
             moved_piece = self.context.piece_at_source(move)
-            undo = self.context.push(move, sync_board=True)
+            undo = self.context.push(move)
             try:
-                score = -self.context.evaluate_for_side(not is_red_turn, dynamic=True)
+                score = -self.context.evaluate_for_side(not is_red_turn)
                 to_row, to_col = self.context.move_target(move)
                 if self._is_square_attacked(to_row, to_col, not is_red_turn):
                     score -= self.context.evaluator.get_piece_value(moved_piece)
@@ -102,6 +102,16 @@ class AIEngineV3:
 
     def _is_square_attacked(self, target_row, target_col, by_red):
         return self.context.is_square_attacked(target_row, target_col, by_red)
+
+    def _checking_moves(self, moves, is_red_turn):
+        checking = set()
+        for move in moves:
+            if not self.context.position.make_move(move, is_red_turn):
+                continue
+            if self.context.position.is_in_check(not is_red_turn):
+                checking.add(move)
+            self.context.position.unmake_move()
+        return checking
 
     def _aspiration_search(self, depth, is_red_turn, previous_best, previous_score):
         if depth <= 1:
@@ -136,16 +146,18 @@ class AIEngineV3:
     def _search_root(self, depth, is_red_turn, previous_best, alpha, beta):
         best_score = -INFINITY
         best_move = None
+        pseudo_moves = self.context.pseudo_moves(is_red_turn)
         moves = self.ordering.ordered(
             self.context.position,
-            self.context.pseudo_moves(is_red_turn),
+            pseudo_moves,
             0,
             previous_best,
+            self._checking_moves(pseudo_moves, is_red_turn),
         )
 
         legal_count = 0
         for move in moves:
-            self.context.check_time()
+            self.context.check_time(force=True)
             undo = self.context.push(move)
             if undo is None:
                 continue
@@ -209,15 +221,15 @@ class AIEngineV3:
 
         key = self.context.state_key(is_red_turn)
         entry = self.tt.probe(key)
-        tt_move = entry.best_move if entry is not None else None
-        if entry is not None and entry.depth >= depth:
+        tt_move = self.tt.moves[entry] if entry >= 0 else None
+        if entry >= 0 and self.tt.depths[entry] >= depth:
             score = self.tt.read_score(entry, ply)
-            if entry.flag == EXACT:
+            if self.tt.flags[entry] == EXACT:
                 self.stats.tt_hits += 1
                 return score
-            if entry.flag == LOWER:
+            if self.tt.flags[entry] == LOWER:
                 alpha = max(alpha, score)
-            elif entry.flag == UPPER:
+            elif self.tt.flags[entry] == UPPER:
                 beta = min(beta, score)
             if alpha >= beta:
                 self.stats.tt_hits += 1
@@ -280,7 +292,14 @@ class AIEngineV3:
         best_move = None
         best_score = -INFINITY
         legal_count = 0
-        ordered_moves = self.ordering.ordered(self.context.position, moves, ply, tt_move)
+        checking_moves = self._checking_moves(moves, is_red_turn) if depth >= 3 else None
+        ordered_moves = self.ordering.ordered(
+            self.context.position,
+            moves,
+            ply,
+            tt_move,
+            checking_moves,
+        )
 
         for move in ordered_moves:
             is_capture = self.context.is_capture(move)
@@ -291,7 +310,26 @@ class AIEngineV3:
             move_index = legal_count
             legal_count += 1
             try:
-                gives_check = self.context.is_in_check(not is_red_turn)
+                needs_check_info = (
+                    (
+                        futility_pruning
+                        and move_index > 0
+                        and not is_capture
+                    )
+                    or (
+                        not pv_node
+                        and move_index >= 4
+                        and depth >= 3
+                        and not in_check
+                        and not is_capture
+                        and not is_killer
+                    )
+                )
+                gives_check = (
+                    self.context.is_in_check(not is_red_turn)
+                    if needs_check_info
+                    else False
+                )
 
                 if (
                     futility_pruning
@@ -418,18 +456,35 @@ class AIEngineV3:
             alpha = max(alpha, stand_pat)
             if moves is None:
                 candidates = self.context.pseudo_moves(is_red_turn, captures_only=True)
-                if not candidates and not self.context.has_legal_move(is_red_turn):
-                    return -MATE_SCORE + ply
             else:
                 candidates = [move for move in moves if self.context.is_capture(move)]
 
         legal_count = 0
         for move in self.ordering.ordered(self.context.position, candidates, ply):
+            attacker = self.context.piece_at_source(move)
+            captured = self.context.captured_piece(move)
+            if not in_check and abs(alpha) < MATE_THRESHOLD:
+                captured_value = PIECE_VALUES[abs(captured)]
+                if stand_pat + captured_value + 80 <= alpha:
+                    continue
             undo = self.context.push(move)
             if undo is None:
                 continue
             legal_count += 1
             try:
+                if not in_check:
+                    attacker_value = PIECE_VALUES[abs(attacker)]
+                    captured_value = PIECE_VALUES[abs(captured)]
+                    gives_check = self.context.is_in_check(not is_red_turn)
+                    if (
+                        captured_value + 100 < attacker_value
+                        and not gives_check
+                        and self.context.is_square_attacked(
+                            *self.context.move_target(move),
+                            not is_red_turn,
+                        )
+                    ):
+                        continue
                 score = -self._quiescence(
                     -beta,
                     -alpha,

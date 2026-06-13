@@ -141,3 +141,42 @@ def test_v3_search_core_uses_flat_board_and_integer_moves():
     assert len(engine.context.position.squares) == 90
     assert all(isinstance(move, int) for move in moves)
     assert all(len(move_to_coordinates(move)) == 4 for move in moves)
+
+
+def test_position_piece_lists_and_incremental_evaluation_restore_after_move():
+    board = Board()
+    engine = AIEngineV3(board, time_limit=10)
+    engine.context.start()
+    position = engine.context.position
+    original_lists = [pieces[:] for pieces in position.piece_lists]
+    original_score = position.evaluate()
+    move = engine.context.legal_moves(True)[0]
+
+    assert position.make_move(move, True)
+    position.unmake_move()
+
+    assert position.piece_lists == original_lists
+    assert position.evaluate() == original_score
+    assert position.undo_ply == 0
+
+
+def test_checking_quiet_move_is_ordered_before_other_quiet_moves():
+    board = Board()
+    board.board = [[Board.EMPTY] * board.BOARD_COLS for _ in range(board.BOARD_ROWS)]
+    board.board[0][4] = Board.BLACK_KING
+    board.board[5][3] = Board.RED_CHARIOT
+    board.board[9][4] = Board.RED_KING
+    board.history = [board.get_state_hash()]
+    engine = AIEngineV3(board, time_limit=10)
+    engine.context.start()
+    moves = engine.context.pseudo_moves(True)
+    checks = engine._checking_moves(moves, True)
+    ordered = engine.ordering.ordered(
+        engine.context.position,
+        moves,
+        ply=0,
+        checking_moves=checks,
+    )
+
+    assert checks
+    assert ordered[0] in checks

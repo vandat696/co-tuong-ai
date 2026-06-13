@@ -1,12 +1,11 @@
 """Shared one-dimensional position operations for the V3 search."""
 
 import time
-from dataclasses import dataclass
 
 from src.board import Board
 from src.engine_v3.evaluation import EvaluatorV3
 from src.engine_v3.move import coordinates, source_square, target_square
-from src.engine_v3.position import PositionUndo, PositionV3
+from src.engine_v3.position import PositionV3
 from src.engine_v3.zobrist import ZobristHasher
 
 
@@ -15,12 +14,6 @@ Move = int
 
 class SearchTimeout(Exception):
     """Raised to discard an incomplete iterative-deepening iteration."""
-
-
-@dataclass
-class UndoState:
-    position_undo: PositionUndo
-    synced_board: bool
 
 
 class SearchContext:
@@ -33,6 +26,8 @@ class SearchContext:
         self.evaluation_cache = {}
         self.fast_evaluation_cache = {}
         self.start_time = 0.0
+        self.deadline = 0.0
+        self.time_check_countdown = 256
 
     @property
     def zobrist_key(self):
@@ -40,7 +35,7 @@ class SearchContext:
 
     @property
     def repetition_counts(self):
-        return self.position.repetition_counts
+        return self.position.repetition_keys
 
     @property
     def king_positions(self):
@@ -51,13 +46,19 @@ class SearchContext:
 
     def start(self):
         self.start_time = time.perf_counter()
+        self.deadline = self.start_time + self.time_limit
+        self.time_check_countdown = 256
         self.evaluator._calculate_initial_score()
         self.position = PositionV3(self.board, self.zobrist)
         self.evaluation_cache.clear()
         self.fast_evaluation_cache.clear()
 
-    def check_time(self):
-        if time.perf_counter() - self.start_time > self.time_limit:
+    def check_time(self, force=False):
+        self.time_check_countdown -= 1
+        if not force and self.time_check_countdown > 0:
+            return
+        self.time_check_countdown = 256
+        if time.perf_counter() > self.deadline:
             raise SearchTimeout
 
     def pseudo_moves(self, is_red_turn, captures_only=False):
@@ -66,22 +67,23 @@ class SearchContext:
     def legal_moves(self, is_red_turn, captures_only=False):
         moves = []
         for move in self.pseudo_moves(is_red_turn, captures_only):
-            undo = self.position.make_move(move, is_red_turn)
-            if undo is not None:
+            if self.position.make_move(move, is_red_turn):
                 moves.append(move)
-                self.position.unmake_move(undo)
+                self.position.unmake_move()
         return moves
 
     def has_legal_move(self, is_red_turn):
         for move in self.pseudo_moves(is_red_turn):
-            undo = self.position.make_move(move, is_red_turn)
-            if undo is not None:
-                self.position.unmake_move(undo)
+            if self.position.make_move(move, is_red_turn):
+                self.position.unmake_move()
                 return True
         return False
 
     def is_capture(self, move):
         return self.position.squares[target_square(move)] != Board.EMPTY
+
+    def captured_piece(self, move):
+        return self.position.squares[target_square(move)]
 
     def piece_at_source(self, move):
         return self.position.squares[source_square(move)]
@@ -89,55 +91,24 @@ class SearchContext:
     def move_target(self, move):
         return coordinates(target_square(move))
 
-    def push(self, move, is_red_turn=None, sync_board=False):
+    def push(self, move, is_red_turn=None):
         piece = self.position.squares[source_square(move)]
         moving_side = piece > 0 if is_red_turn is None else is_red_turn
-        position_undo = self.position.make_move(move, moving_side)
-        if position_undo is None:
-            return None
-
-        from_row, from_col = coordinates(source_square(move))
-        to_row, to_col = coordinates(target_square(move))
-        self.evaluator.update_move(
-            from_row,
-            from_col,
-            to_row,
-            to_col,
-            position_undo.piece,
-            position_undo.captured_piece,
-        )
-        if sync_board:
-            self.board.board[to_row][to_col] = position_undo.piece
-            self.board.board[from_row][from_col] = Board.EMPTY
-            self.board.half_move_clock = self.position.half_move_clock
-        return UndoState(position_undo, sync_board)
+        return True if self.position.make_move(move, moving_side) else None
 
     def pop(self, undo):
-        position_undo = undo.position_undo
-        from_row, from_col = coordinates(source_square(position_undo.move))
-        to_row, to_col = coordinates(target_square(position_undo.move))
-        self.position.unmake_move(position_undo)
-        if undo.synced_board:
-            self.board.board[from_row][from_col] = position_undo.piece
-            self.board.board[to_row][to_col] = position_undo.captured_piece
-            self.board.half_move_clock = position_undo.old_clock
-        self.evaluator.undo_update_move(
-            from_row,
-            from_col,
-            to_row,
-            to_col,
-            position_undo.piece,
-            position_undo.captured_piece,
-        )
+        self.position.unmake_move()
 
     def evaluate_for_side(self, is_red_turn, dynamic=False):
-        cache = self.evaluation_cache if dynamic else self.fast_evaluation_cache
-        score = cache.get(self.zobrist_key)
+        if not dynamic:
+            score = self.position.evaluate()
+            return score if is_red_turn else -score
+        score = self.evaluation_cache.get(self.zobrist_key)
         if score is None:
-            score = self.evaluator.evaluate() if dynamic else self.evaluator.evaluate_fast()
-            if len(cache) >= 65_536:
-                cache.clear()
-            cache[self.zobrist_key] = score
+            score = self.evaluator.evaluate()
+            if len(self.evaluation_cache) >= 65_536:
+                self.evaluation_cache.clear()
+            self.evaluation_cache[self.zobrist_key] = score
         return score if is_red_turn else -score
 
     def is_in_check(self, is_red_turn):
@@ -156,7 +127,7 @@ class SearchContext:
     def is_draw(self):
         return (
             self.position.half_move_clock >= 120
-            or self.repetition_counts[self.zobrist_key] >= 3
+            or self.position.repetition_keys.count(self.zobrist_key) >= 3
         )
 
     def state_key(self, is_red_turn):
@@ -164,8 +135,7 @@ class SearchContext:
 
     def has_non_pawn_material(self, is_red_turn):
         return any(
-            piece != Board.EMPTY
-            and (piece > 0) == is_red_turn
-            and abs(piece) not in (Board.RED_KING, Board.RED_PAWN)
-            for piece in self.position.squares
+            abs(self.position.squares[source])
+            not in (Board.RED_KING, Board.RED_PAWN)
+            for source in self.position.piece_lists[1 if is_red_turn else 0]
         )

@@ -280,6 +280,17 @@ của độ sâu đã hoàn thành. Nhờ vậy phép so sánh tập trung vào 
 chất lượng nước đi đạt được trong cùng thời gian, thay vì ép các engine chạy cùng
 độ sâu dù tốc độ triển khai khác nhau.
 
+V3 còn dùng bảng hình học tính sẵn, ưu tiên nước chiếu và lọc nước ăn quân lỗ
+trong quiescence. Trên benchmark bàn đầu, các thay đổi này giúp V3 hoàn thành
+depth 4 ổn định hơn trong cùng ngân sách. Đây là bằng chứng tăng hiệu năng, nhưng
+chưa thay thế benchmark Elo nhiều ván để kết luận V3 mạnh hơn V2.
+
+Lõi V3 giữ danh sách vị trí quân theo từng bên, evaluator MG/EG/phase gia tăng,
+undo stack và transposition table bằng mảng cấp phát sẵn. `Counter`, dataclass
+undo và đồng bộ evaluator ngoài `PositionV3` đã được loại khỏi hot path. Kiểm tra
+đồng hồ chạy theo chu kỳ node; thông tin chiếu chỉ được tính thêm khi move
+ordering hoặc selective pruning thực sự cần.
+
 ## Sự tiến bộ qua từng phiên bản
 
 | Khía cạnh | V1 | V2 | V3 |

@@ -98,6 +98,12 @@ Ba engine trong đấu trường dùng cùng ngân sách suy nghĩ `0.5` giây m
 deepening hoàn thành cuối cùng. Với V2, thời gian khởi động Node bridge không
 được tính vào thời gian suy nghĩ nội bộ của engine.
 
+Có thể chạy lại phép đo V2/V3 trên bàn đầu bằng:
+
+```powershell
+python backend/benchmarks/compare_v2_v3.py 10 0.5
+```
+
 Nếu hết thời gian giữa một vòng tìm kiếm, engine dùng kết quả hoàn chỉnh của độ sâu
 trước đó. Nước tốt nhất của vòng trước cũng được ưu tiên duyệt trước ở vòng sau.
 
@@ -244,6 +250,16 @@ một số nguyên đóng gói ô nguồn/ô đích. `generate_moves()` chỉ si
 moves; `make_move()` cập nhật bàn, vị trí Tướng, half-move clock và Zobrist rồi
 hoàn tác ngay nếu nước đi để Tướng bị chiếu hoặc tạo lặp thế lần ba. Bàn 2D chỉ
 được giữ tại biên API và khi evaluation động cần phân tích thế cờ.
+
+Các bảng hình học cho tia Xe/Pháo, đích Mã/Tượng/Tốt và nguồn tấn công được tính
+sẵn khi tải module. Move ordering ưu tiên nước chiếu ở node nông. Quiescence dùng
+delta pruning và bỏ nước ăn quân lỗ rõ ràng nếu nước đó không chiếu, giúp dành
+thêm thời gian cho độ sâu chính mà vẫn bảo vệ chuỗi chiếu.
+
+`PositionV3` còn giữ danh sách vị trí quân theo từng bên, điểm MG/EG/phase gia
+tăng và undo stack cấp phát sẵn. Search không quét đủ 90 ô để tìm quân, không tạo
+dataclass undo mỗi nước và không đồng bộ `EvaluatorV3` tại từng node. Đồng hồ chỉ
+được đọc theo chu kỳ node thay vì tại mọi lời gọi đệ quy.
 
 Selective pruning chỉ chạy khi bên đến lượt không bị chiếu. Nước ăn quân và nước
 chiếu cũng được bảo vệ khỏi Futility Pruning và LMR.

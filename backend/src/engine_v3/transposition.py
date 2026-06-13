@@ -1,36 +1,29 @@
-"""Fixed-size transposition table with mate-score normalization."""
+"""Fixed-size allocation-free transposition table."""
 
-from dataclasses import dataclass
-
-
-EXACT = "EXACT"
-LOWER = "LOWER"
-UPPER = "UPPER"
-
-
-@dataclass
-class TTEntry:
-    key: int
-    depth: int
-    score: int
-    flag: str
-    best_move: int | None
+EXACT = 0
+LOWER = 1
+UPPER = 2
 
 
 class TranspositionTable:
     def __init__(self, capacity, mate_threshold):
-        self.entries = [None] * capacity
+        self.capacity = capacity
         self.mate_threshold = mate_threshold
+        self.keys = [0] * capacity
+        self.depths = [-1] * capacity
+        self.scores = [0] * capacity
+        self.flags = [EXACT] * capacity
+        self.moves = [0] * capacity
 
     def clear(self):
-        self.entries = [None] * len(self.entries)
+        self.depths = [-1] * self.capacity
 
     def probe(self, key):
-        entry = self.entries[key % len(self.entries)]
-        return entry if entry is not None and entry.key == key else None
+        index = key % self.capacity
+        return index if self.depths[index] >= 0 and self.keys[index] == key else -1
 
-    def read_score(self, entry, ply):
-        score = entry.score
+    def read_score(self, index, ply):
+        score = self.scores[index]
         if score > self.mate_threshold:
             return score - ply
         if score < -self.mate_threshold:
@@ -38,20 +31,17 @@ class TranspositionTable:
         return score
 
     def store(self, key, depth, score, flag, best_move, ply):
-        current = self.entries[key % len(self.entries)]
-        if current is not None and current.key == key and current.depth > depth:
+        index = key % self.capacity
+        if self.keys[index] == key and self.depths[index] > depth:
             return
 
-        stored_score = score
         if score > self.mate_threshold:
-            stored_score += ply
+            score += ply
         elif score < -self.mate_threshold:
-            stored_score -= ply
+            score -= ply
 
-        self.entries[key % len(self.entries)] = TTEntry(
-            key,
-            depth,
-            stored_score,
-            flag,
-            best_move,
-        )
+        self.keys[index] = key
+        self.depths[index] = depth
+        self.scores[index] = score
+        self.flags[index] = flag
+        self.moves[index] = best_move or 0
