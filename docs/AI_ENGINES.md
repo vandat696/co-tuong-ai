@@ -5,15 +5,16 @@ vai trò của từng thuật toán.
 
 ## Danh sách engine
 
-Hiện tại dự án có hai implementation AI độc lập:
+Hiện tại dự án có ba implementation AI:
 
 | Engine | Vai trò | Mã nguồn |
 | --- | --- | --- |
 | V1 - Minimax Alpha-Beta | Engine chính của dự án | `backend/src/ai_engine.py`, `backend/src/eval.py` |
 | V2 - WukongJS Negamax | Đối thủ độc lập để quan sát và so sánh | `backend/references/wukong/wukong.js` |
+| V3 - Mate-Aware Negamax | Engine Python xử lý chuỗi chiếu và chiếu hết | `backend/src/engine_v3/` |
 
-WukongJS không phải phiên bản tiếp theo của AI Python. Hai engine có cách cài đặt,
-thuật toán và hàm đánh giá riêng.
+WukongJS không phải phiên bản tiếp theo của AI Python. Nó có cách cài đặt, thuật
+toán và hàm đánh giá độc lập với các engine Python.
 
 ## Luồng hoạt động chung
 
@@ -43,6 +44,8 @@ Frontend
 backend/api.py
    |
    +-- runner=python --> AIEngine.get_best_move()
+   |
+   +-- runner=python_v3 --> AIEngineV3.get_best_move()
    |
    +-- runner=wukong --> Node bridge --> WukongJS.search()
 ```
@@ -187,18 +190,47 @@ Các trọng số trong mã Wukong được ghi chú là lấy từ tài liệu 
 tướng. Không giống AI Python, Wukong hiện không dùng Tapered Evaluation tách riêng
 khai/trung cuộc và tàn cuộc.
 
-## So sánh hai engine
+## V3 - Mate-Aware Negamax
 
-| Đặc điểm | V1 - Minimax Alpha-Beta | V2 - WukongJS Negamax |
-| --- | --- | --- |
-| Kiểu tìm kiếm | Minimax | Negamax |
-| Alpha-Beta | Có | Có |
-| Iterative Deepening | Có | Có |
-| Transposition Table | Có | Có |
-| Quiescence Search | Có | Có |
-| Null Move / Futility / LMR / PVS | Chưa có | Có |
-| Hàm đánh giá | Tapered material + PST | Material + PST |
-| Vai trò | Engine chính để phát triển | Engine đối chiếu độc lập |
+V3 giữ V1 nguyên trạng để có thể đấu A/B, nhưng tổ chức search thành package riêng:
+
+- `engine_v3/engine.py`: iterative deepening, Negamax, Alpha-Beta, TT và quiescence.
+- `engine_v3/context.py`: sinh nước, đi/hoàn tác, timeout và chuyển điểm theo bên đến lượt.
+
+V3 kiểm tra trạng thái kết thúc trước khi đánh giá tĩnh. Trong quiescence, nếu bên
+đến lượt đang bị chiếu, engine tìm tất cả nước thoát chiếu thay vì chỉ tìm nước ăn
+quân. Check extension giúp theo chuỗi chiếu sâu hơn, còn mate-distance score giúp
+ưu tiên chiếu hết nhanh và trì hoãn bị chiếu hết.
+
+Các tối ưu tìm kiếm lấy ý tưởng từ Wukong đã được đưa vào V3:
+
+- Zobrist Hashing gia tăng và TT giới hạn kích thước.
+- Killer Move, History Heuristic, TT move và MVV-LVA.
+- Aspiration Windows và Principal Variation Search.
+- Late Move Reduction.
+- Null Move, Futility Pruning, Razoring và reverse futility pruning.
+
+Selective pruning chỉ chạy khi bên đến lượt không bị chiếu. Nước ăn quân và nước
+chiếu cũng được bảo vệ khỏi Futility Pruning và LMR.
+
+## So sánh các engine
+
+| Đặc điểm | V1 - Minimax Alpha-Beta | V2 - WukongJS Negamax | V3 - Mate-Aware Negamax |
+| --- | --- | --- | --- |
+| Kiểu tìm kiếm | Minimax | Negamax | Negamax |
+| Alpha-Beta | Có | Có | Có |
+| Iterative Deepening | Có | Có | Có |
+| Transposition Table | Có | Có | Có |
+| Zobrist Hashing | Chưa có | Có | Có |
+| Quiescence Search | Chỉ nước ăn quân | Chỉ nước ăn quân | Xử lý cả nước thoát chiếu |
+| Check extension | Chưa có | Có | Có |
+| Mate-distance score | Chưa có | Có | Có |
+| Killer Move / History | Chưa có | Có | Có |
+| Aspiration Windows | Chưa có | Chưa có | Có |
+| Null Move / Futility / LMR / PVS | Chưa có | Có | Có |
+| Razoring / Reverse Futility | Chưa có | Có | Có |
+| Hàm đánh giá | Tapered material + PST | Material + PST | Tapered material + PST |
+| Vai trò | Baseline Python | Engine đối chiếu độc lập | Engine Python xử lý chiếu hết |
 
 Không nên kết luận engine mạnh hơn chỉ dựa vào số lượng thuật toán. Độ chính xác
 luật chơi, chất lượng hàm đánh giá, move ordering và hiệu năng implementation đều
@@ -787,20 +819,21 @@ cuộc quan trọng.
 Không nên thêm mọi kỹ thuật vào một lần. Mỗi phiên bản nên có một mục tiêu rõ ràng
 để kết quả đấu cho biết kỹ thuật đó có hiệu quả hay không.
 
-| Phiên bản đề xuất | Thay đổi chính | Mục tiêu |
+| Bước đề xuất | Thay đổi chính | Mục tiêu |
 | --- | --- | --- |
-| V1 - Minimax Alpha-Beta | Baseline hiện tại | Làm mốc so sánh |
-| V2 - Zobrist + TT | Hash nhanh, TT cố định và giữ qua lượt | Tăng nodes/second, giảm tính lại |
-| V3 - Move Ordering | Killer Move + History Heuristic | Tăng cutoff, đạt depth cao hơn |
-| V4 - PVS + Aspiration | Tối ưu cửa sổ Alpha-Beta | Giảm số nút tìm kiếm |
-| V5 - LMR | Giảm sâu nước muộn, tìm lại khi cần | Tăng độ sâu trong cùng thời gian |
-| V6 - Selective Pruning | Null Move + Futility + Razoring | Cắt nhánh ít triển vọng |
-| V7 - Evaluation Mobility | Mobility, chân Mã, đường mở của Xe | Phát triển quân và tránh tự nhốt quân |
-| V8 - Evaluation King Safety | An toàn Tướng, Sĩ/Tượng phòng thủ, áp lực vào cung | Nhận biết tấn công và nguy cơ chiếu bí |
-| V9 - Evaluation Xiangqi | Ngòi Pháo, cấu trúc Tốt, phối hợp quân | Hiểu các đặc điểm riêng của cờ tướng |
-| V10 - Evaluation Threats | Quân bị treo, attackers/defenders, SEE | Đánh giá đổi quân và chiến thuật chính xác hơn |
-| V11 - Tuned Evaluation | Điều chỉnh trọng số bằng dữ liệu tự đấu | Cân bằng các feature bằng kết quả thực nghiệm |
-| V12 - Knowledge | Opening Book hoặc Tablebase | Cải thiện khai cuộc/tàn cuộc |
+| Baseline | V1 Minimax Alpha-Beta | Làm mốc so sánh |
+| Mate-aware search | V3 Negamax, terminal-first, check-aware quiescence | Tìm chuỗi chiếu và chiếu hết chính xác hơn |
+| Zobrist + TT | Hash nhanh, TT cố định và giữ qua lượt | Tăng nodes/second, giảm tính lại |
+| Move Ordering | Killer Move + History Heuristic | Tăng cutoff, đạt depth cao hơn |
+| PVS + Aspiration | Tối ưu cửa sổ Alpha-Beta | Giảm số nút tìm kiếm |
+| LMR | Giảm sâu nước muộn, tìm lại khi cần | Tăng độ sâu trong cùng thời gian |
+| Selective Pruning | Null Move + Futility + Razoring | Cắt nhánh ít triển vọng |
+| Evaluation Mobility | Mobility, chân Mã, đường mở của Xe | Phát triển quân và tránh tự nhốt quân |
+| Evaluation King Safety | An toàn Tướng, Sĩ/Tượng phòng thủ, áp lực vào cung | Nhận biết tấn công và nguy cơ chiếu bí |
+| Evaluation Xiangqi | Ngòi Pháo, cấu trúc Tốt, phối hợp quân | Hiểu các đặc điểm riêng của cờ tướng |
+| Evaluation Threats | Quân bị treo, attackers/defenders, SEE | Đánh giá đổi quân và chiến thuật chính xác hơn |
+| Tuned Evaluation | Điều chỉnh trọng số bằng dữ liệu tự đấu | Cân bằng các feature bằng kết quả thực nghiệm |
+| Knowledge | Opening Book hoặc Tablebase | Cải thiện khai cuộc/tàn cuộc |
 
 WukongJS nên giữ vai trò đối thủ tham chiếu, không tính là một bước triển khai trong
 chuỗi phiên bản Python.

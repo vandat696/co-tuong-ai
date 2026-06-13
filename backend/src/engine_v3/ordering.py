@@ -1,0 +1,57 @@
+"""Move ordering heuristics for V3."""
+
+from src.board import Board
+
+
+class MoveOrdering:
+    def __init__(self, evaluator, max_ply):
+        self.evaluator = evaluator
+        self.max_ply = max_ply
+        self.killers = [[None, None] for _ in range(max_ply)]
+        self.history = {}
+
+    def clear(self):
+        self.killers = [[None, None] for _ in range(self.max_ply)]
+        self.history.clear()
+
+    def ordered(self, board, moves, ply, preferred_move=None):
+        return sorted(
+            moves,
+            key=lambda move: self.score(board, move, ply, preferred_move),
+            reverse=True,
+        )
+
+    def score(self, board, move, ply, preferred_move=None):
+        if move == preferred_move:
+            return 1_000_000
+
+        captured = board.get_piece(move[2], move[3])
+        if captured != Board.EMPTY:
+            attacker = board.get_piece(move[0], move[1])
+            values = self.evaluator.MG_PIECE_VALUES
+            return (
+                100_000
+                + 10 * values.get(abs(captured), 0)
+                - values.get(abs(attacker), 0)
+            )
+
+        if ply < self.max_ply:
+            if move == self.killers[ply][0]:
+                return 90_000
+            if move == self.killers[ply][1]:
+                return 80_000
+
+        piece = board.get_piece(move[0], move[1])
+        return self.history.get((piece, move[2], move[3]), 0)
+
+    def record_quiet_cutoff(self, board, move, depth, ply):
+        if ply < self.max_ply and move != self.killers[ply][0]:
+            self.killers[ply][1] = self.killers[ply][0]
+            self.killers[ply][0] = move
+
+        piece = board.get_piece(move[0], move[1])
+        key = (piece, move[2], move[3])
+        self.history[key] = min(75_000, self.history.get(key, 0) + depth * depth)
+
+    def is_killer(self, move, ply):
+        return ply < self.max_ply and move in self.killers[ply]

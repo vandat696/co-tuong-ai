@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from src.ai_engine import AIEngine
 from src.board import Board
+from src.engine_v3 import AIEngineV3
 from src.eval import Evaluator
 from src.move_gen import MoveGenerator
 
@@ -40,6 +41,18 @@ AI_VERSIONS = {
         "evaluation": "Giá trị quân cờ kết hợp bảng điểm vị trí (PST) lấy từ các tài liệu nghiên cứu cờ tướng.",
         "max_depth": 3,
         "time_limit": 0.0,
+    },
+    "python_v3": {
+        "id": "python_v3",
+        "order": 3,
+        "name": "V3 - Mate-Aware Negamax",
+        "description": "Engine Python tách module, ưu tiên chuỗi chiếu và nhận diện chiếu hết tại chân trời tìm kiếm.",
+        "engine": "Python",
+        "runner": "python_v3",
+        "search": "Negamax, Alpha-Beta, IDS, Zobrist TT, PVS, LMR, Null Move, Futility, Razoring, Killer/History và quiescence có xử lý chiếu.",
+        "evaluation": "Tapered Evaluation của V1, kết hợp mate-distance score để ưu tiên chiếu hết nhanh.",
+        "max_depth": 5,
+        "time_limit": 0.5,
     },
 }
 
@@ -328,7 +341,8 @@ def get_ai_move(request: MoveRequest):
     if config["runner"] == "wukong":
         best_move = get_wukong_move(request, config)
     else:
-        engine = AIEngine(
+        engine_class = AIEngineV3 if config["runner"] == "python_v3" else AIEngine
+        engine = engine_class(
             board,
             max_depth=config["max_depth"],
             time_limit=config["time_limit"],

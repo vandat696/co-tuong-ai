@@ -29,6 +29,18 @@ const FALLBACK_AI_VERSIONS = [
     max_depth: 3,
     time_limit: 0,
   },
+  {
+    id: "python_v3",
+    order: 3,
+    name: "V3 - Mate-Aware Negamax",
+    description: "Engine xử lý chiếu hết",
+    engine: "Python",
+    runner: "python_v3",
+    search: "Negamax, Alpha-Beta, Zobrist TT, PVS, LMR, Null Move, Futility, Razoring và quiescence có xử lý chiếu.",
+    evaluation: "Tapered Evaluation kết hợp mate-distance score.",
+    max_depth: 5,
+    time_limit: 0.5,
+  },
 ];
 
 const emptyStats = () => ({
