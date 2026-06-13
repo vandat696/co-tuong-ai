@@ -1,6 +1,6 @@
-from src.board import Board
-from src.engine_v3 import AIEngineV3
-from src.engine_v3.engine import MATE_SCORE
+from core.board import Board
+from engines.v3 import AIEngineV3
+from engines.v3.engine import MATE_SCORE
 
 
 def empty_board():

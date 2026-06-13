@@ -1,7 +1,7 @@
 """Move ordering heuristics for V3."""
 
-from src.board import Board
-from src.engine_v3.move import source_square, target_square
+from core.board import Board
+from engines.v3.move import source_square, target_square
 
 PIECE_VALUES = (0, 6000, 120, 120, 600, 270, 285, 30)
 

@@ -2,9 +2,9 @@
 
 import json
 
-from src.board import Board
-from src.eval import Evaluator
-from src.engine_v3.move import (
+from core.board import Board
+from engines.v1.eval import Evaluator
+from engines.v3.move import (
     encode_move,
     source_square,
     target_square,

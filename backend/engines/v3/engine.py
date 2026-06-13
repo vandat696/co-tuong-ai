@@ -2,10 +2,10 @@
 
 from dataclasses import dataclass
 
-from src.engine_v3.context import SearchContext, SearchTimeout
-from src.engine_v3.move import move_to_coordinates
-from src.engine_v3.ordering import PIECE_VALUES, MoveOrdering
-from src.engine_v3.transposition import EXACT, LOWER, UPPER, TranspositionTable
+from engines.v3.context import SearchContext, SearchTimeout
+from engines.v3.move import move_to_coordinates
+from engines.v3.ordering import PIECE_VALUES, MoveOrdering
+from engines.v3.transposition import EXACT, LOWER, UPPER, TranspositionTable
 
 
 MATE_SCORE = 100_000

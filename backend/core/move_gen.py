@@ -2,7 +2,7 @@
 move_gen.py - Sinh nước đi hợp lệ cho từng loại quân
 """
 
-from src.board import Board
+from core.board import Board
 
 
 class MoveGenerator:

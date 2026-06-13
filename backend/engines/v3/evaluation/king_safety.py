@@ -1,7 +1,7 @@
 """King safety and palace-defense features."""
 
-from src.board import Board
-from src.engine_v3.evaluation.types import TaperedScore
+from core.board import Board
+from engines.v3.evaluation.types import TaperedScore
 
 
 DEFENDER_NEAR_KING_BONUS = (7, 3)

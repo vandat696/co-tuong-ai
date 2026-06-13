@@ -1,7 +1,7 @@
 """Mobility and Xiangqi-specific piece activity features."""
 
-from src.board import Board
-from src.engine_v3.evaluation.types import TaperedScore
+from core.board import Board
+from engines.v3.evaluation.types import TaperedScore
 
 
 MOBILITY_WEIGHT = {

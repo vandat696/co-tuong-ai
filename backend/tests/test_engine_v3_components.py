@@ -1,9 +1,9 @@
-from src.board import Board
-from src.engine_v3 import AIEngineV3
-from src.engine_v3.engine import MATE_SCORE, MATE_THRESHOLD
-from src.engine_v3.move import move_from_coordinates, move_to_coordinates, target_square
-from src.engine_v3.transposition import EXACT, TranspositionTable
-from src.move_gen import MoveGenerator
+from core.board import Board
+from engines.v3 import AIEngineV3
+from engines.v3.engine import MATE_SCORE, MATE_THRESHOLD
+from engines.v3.move import move_from_coordinates, move_to_coordinates, target_square
+from engines.v3.transposition import EXACT, TranspositionTable
+from core.move_gen import MoveGenerator
 
 
 def test_zobrist_hash_updates_and_restores_with_move():

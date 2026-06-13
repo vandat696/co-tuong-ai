@@ -2,11 +2,11 @@
 
 import time
 
-from src.board import Board
-from src.engine_v3.evaluation import EvaluatorV3
-from src.engine_v3.move import coordinates, source_square, target_square
-from src.engine_v3.position import PositionV3
-from src.engine_v3.zobrist import ZobristHasher
+from core.board import Board
+from engines.v3.evaluation import EvaluatorV3
+from engines.v3.move import coordinates, source_square, target_square
+from engines.v3.position import PositionV3
+from engines.v3.zobrist import ZobristHasher
 
 
 Move = int
