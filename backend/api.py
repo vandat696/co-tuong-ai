@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from engines.v1.ai_engine import AIEngine
 from core.board import Board
 from engines.v3 import AIEngineV3
+from engines.v4.engine_v4 import AIEngineV4
 from engines.v3.evaluation import EvaluatorV3
 from engines.v1.eval import Evaluator
 from core.move_gen import MoveGenerator
@@ -52,6 +53,18 @@ AI_VERSIONS = {
         "runner": "python_v3",
         "search": "Negamax, Alpha-Beta, IDS, Zobrist TT, PVS, LMR, Null Move, Futility, Razoring, Killer/History và quiescence có xử lý chiếu.",
         "evaluation": "Hybrid: tapered material/PST nhanh trong search; activity và King Safety dùng cho phân tích/fallback.",
+        "max_depth": 64,
+        "time_limit": 0.5,
+    },
+    "python_v4": {
+        "id": "python_v4",
+        "order": 4,
+        "name": "V4 - NNUE Evaluation",
+        "description": "Engine V3 + NNUE neural evaluation thay thế heuristic.",
+        "engine": "Python",
+        "runner": "python_v4",
+        "search": "Negamax + PVS + LMR + NMP + Futility + Razoring + NNUE Eval",
+        "evaluation": "NNUE: HalfKP features → 128-unit hidden → scalar output, incremental accumulator update.",
         "max_depth": 64,
         "time_limit": 0.5,
     },
@@ -363,7 +376,12 @@ def get_ai_move(request: MoveRequest):
     if config["runner"] == "wukong":
         best_move, search_stats = get_wukong_move(request, {"max_depth": max_depth, "time_limit": time_limit})
     else:
-        engine_class = AIEngineV3 if config["runner"] == "python_v3" else AIEngine
+        if config["runner"] == "python_v4":
+            engine_class = AIEngineV4
+        elif config["runner"] == "python_v3":
+            engine_class = AIEngineV3
+        else:
+            engine_class = AIEngine
         engine = engine_class(
             board,
             max_depth=max_depth,
@@ -397,7 +415,7 @@ def get_ai_move(request: MoveRequest):
         from_row, from_col, to_row, to_col = best_move
 
     board.move_piece(from_row, from_col, to_row, to_col)
-    evaluator_class = EvaluatorV3 if config["runner"] == "python_v3" else Evaluator
+    evaluator_class = EvaluatorV3 if config["runner"] in ("python_v3", "python_v4") else Evaluator
     score = evaluator_class(board).evaluate()
 
     return MoveResponse(

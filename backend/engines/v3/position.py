@@ -9,6 +9,7 @@ from engines.v3.move import (
     source_square,
     target_square,
 )
+from engines.v3.halfkp import active_features, feature_diff
 
 
 ORTHOGONALS = ((0, 1), (0, -1), (1, 0), (-1, 0))
@@ -178,7 +179,7 @@ PAWN_ATTACKERS = {
 }
 
 
-MAX_UNDO_PLY = 256
+MAX_UNDO_PLY = 1024
 
 
 def _build_evaluation_tables():
@@ -262,6 +263,13 @@ class PositionV3:
         self.undo_captured_slot = [0] * MAX_UNDO_PLY
         self.undo_swapped_square = [0] * MAX_UNDO_PLY
         self.undo_ply = 0
+        self.nnue = None
+
+    def attach_nnue(self, nnue_inference):
+        self.nnue = nnue_inference
+        # Full accumulator recompute on attach
+        r_feats, b_feats = active_features(self.squares, self.king_squares[True], self.king_squares[False])
+        self.nnue.full_recompute(r_feats, b_feats)
 
     def _find_piece(self, wanted):
         try:
@@ -438,6 +446,23 @@ class PositionV3:
         self.zobrist_key = self.zobrist.update_indices(
             self.zobrist_key, source, target, piece, captured
         )
+        
+        if self.nnue is not None:
+            import numpy as np
+            if abs(piece) == Board.RED_KING:
+                # Full recompute required since King moved (HalfKP depends on King square)
+                r_feats, b_feats = active_features(self.squares, self.king_squares[True], self.king_squares[False])
+                self.nnue.acc_stack_red.append(np.copy(self.nnue.red_acc.values))
+                self.nnue.acc_stack_black.append(np.copy(self.nnue.black_acc.values))
+                self.nnue.full_recompute(r_feats, b_feats)
+            else:
+                import numpy as np
+                rem_r, add_r, rem_b, add_b = feature_diff(
+                    source, target, piece, captured, 
+                    self.king_squares[True], self.king_squares[False]
+                )
+                self.nnue.push(rem_r, add_r, rem_b, add_b)
+                
         self.half_move_clock = 0 if captured or abs(piece) == Board.RED_PAWN else self.half_move_clock + 1
         self.repetition_keys.append(self.zobrist_key)
 
@@ -487,10 +512,18 @@ class PositionV3:
         self.zobrist_key = self.undo_hash[ply]
         self.king_squares[True] = None if self.undo_red_king[ply] < 0 else self.undo_red_king[ply]
         self.king_squares[False] = None if self.undo_black_king[ply] < 0 else self.undo_black_king[ply]
+        if self.nnue is not None:
+            self.nnue.pop()
 
     def evaluate(self):
         phase = max(0, min(16, self.phase))
         return (self.mg_score * phase + self.eg_score * (16 - phase)) // 16
+
+    def evaluate_nnue(self, is_red_turn):
+        if self.nnue is not None:
+            score = self.nnue.evaluate(is_red_turn)
+            return score if is_red_turn else -score
+        return self.evaluate() # Fallback
 
     def is_in_check(self, is_red_turn):
         king = self.king_squares[is_red_turn]

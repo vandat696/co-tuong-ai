@@ -17,9 +17,10 @@ class SearchTimeout(Exception):
 
 
 class SearchContext:
-    def __init__(self, board, time_limit):
+    def __init__(self, board, time_limit, nnue_path=None):
         self.board = board
         self.time_limit = time_limit
+        self.nnue_path = nnue_path
         self.evaluator = EvaluatorV3(board)
         self.zobrist = ZobristHasher()
         self.position = None
@@ -50,6 +51,15 @@ class SearchContext:
         self.time_check_countdown = 256
         self.evaluator._calculate_initial_score()
         self.position = PositionV3(self.board, self.zobrist)
+        
+        if self.nnue_path:
+            try:
+                from engines.v3.accumulator import NNUEInference
+                nnue = NNUEInference(self.nnue_path)
+                self.position.attach_nnue(nnue)
+            except Exception as e:
+                print(f"Failed to load NNUE: {e}. Falling back to heuristic.")
+                
         self.evaluation_cache.clear()
         self.fast_evaluation_cache.clear()
 
@@ -101,7 +111,7 @@ class SearchContext:
 
     def evaluate_for_side(self, is_red_turn, dynamic=False):
         if not dynamic:
-            score = self.position.evaluate()
+            score = self.position.evaluate_nnue(is_red_turn)
             return score if is_red_turn else -score
         score = self.evaluation_cache.get(self.zobrist_key)
         if score is None:
