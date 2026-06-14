@@ -1,5 +1,9 @@
 # BÁO CÁO TIẾN ĐỘ DỰ ÁN
 
+> **Lưu ý:** Đây là báo cáo tiến độ lịch sử của giai đoạn V1. Trạng thái engine
+> hiện tại đã có V2, V3 và V4; xem `docs/AI_ENGINES.md` và
+> `docs/V2_V3_BENCHMARK_RESULTS.md` để có mô tả kỹ thuật mới nhất.
+
 ## ♞ Cờ Tướng AI Bot - Nhập Môn Trí Tuệ Nhân Tạo
 
 ---
