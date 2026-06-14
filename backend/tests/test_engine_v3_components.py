@@ -160,6 +160,58 @@ def test_position_piece_lists_and_incremental_evaluation_restore_after_move():
     assert position.undo_ply == 0
 
 
+def test_search_evaluation_rewards_free_horse_over_blocked_horse():
+    free = Board()
+    free.board = [[Board.EMPTY] * free.BOARD_COLS for _ in range(free.BOARD_ROWS)]
+    free.board[0][3] = Board.BLACK_KING
+    free.board[9][4] = Board.RED_KING
+    free.board[5][4] = Board.RED_HORSE
+    free.history = [free.get_state_hash()]
+
+    blocked = Board()
+    blocked.board = [row[:] for row in free.board]
+    blocked.board[4][4] = Board.RED_PAWN
+    blocked.board[6][4] = Board.RED_PAWN
+    blocked.history = [blocked.get_state_hash()]
+
+    free_engine = AIEngineV3(free, time_limit=10)
+    blocked_engine = AIEngineV3(blocked, time_limit=10)
+    free_engine.context.start()
+    blocked_engine.context.start()
+
+    free_activity = (
+        free_engine.context.position.evaluate_search()
+        - free_engine.context.position.evaluate()
+    )
+    blocked_activity = (
+        blocked_engine.context.position.evaluate_search()
+        - blocked_engine.context.position.evaluate()
+    )
+
+    assert free_activity > blocked_activity
+
+
+def test_v2_inspired_pawn_pst_rewards_deep_advanced_pawn():
+    home = Board()
+
+    advanced = Board()
+    advanced.board = [row[:] for row in home.board]
+    advanced.board[6][4] = Board.EMPTY
+    advanced.board[1][4] = Board.RED_PAWN
+    advanced.history = [advanced.get_state_hash()]
+
+    home_engine = AIEngineV3(home, time_limit=10)
+    advanced_engine = AIEngineV3(advanced, time_limit=10)
+    home_engine.context.start()
+    advanced_engine.context.start()
+
+    assert (
+        advanced_engine.context.position.evaluate()
+        - home_engine.context.position.evaluate()
+        >= 100
+    )
+
+
 def test_checking_quiet_move_is_ordered_before_other_quiet_moves():
     board = Board()
     board.board = [[Board.EMPTY] * board.BOARD_COLS for _ in range(board.BOARD_ROWS)]

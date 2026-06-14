@@ -113,9 +113,14 @@ class SearchContext:
         if not dynamic:
             score = self.position.evaluate_nnue(is_red_turn)
             return score if is_red_turn else -score
+
         score = self.evaluation_cache.get(self.zobrist_key)
         if score is None:
-            score = self.evaluator.evaluate()
+            score = (
+                self.position.evaluate_search()
+                if self.position.nnue is None
+                else self.position.evaluate_nnue(is_red_turn)
+            )
             if len(self.evaluation_cache) >= 65_536:
                 self.evaluation_cache.clear()
             self.evaluation_cache[self.zobrist_key] = score
