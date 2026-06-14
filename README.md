@@ -37,6 +37,7 @@ ml/        model runtime và dataset cục bộ
 
 ## Tài liệu
 
+- [Báo cáo project môn Trí tuệ nhân tạo](docs/BAO_CAO_MON_HOC.md)
 - [Mô tả kỹ thuật các engine](docs/AI_ENGINES.md)
 - [Bản trình bày/phản biện phiên bản](docs/AI_VERSION_DEFENSE.md)
 - [Kết quả benchmark V2/V3](docs/V2_V3_BENCHMARK_RESULTS.md)
