@@ -2,6 +2,7 @@ from core.board import Board
 from engines.v3 import AIEngineV3
 from engines.v3.engine import MATE_SCORE, MATE_THRESHOLD
 from engines.v3.move import move_from_coordinates, move_to_coordinates, target_square
+from engines.v3.opening import opening_moves
 from engines.v3.transposition import EXACT, TranspositionTable
 from core.move_gen import MoveGenerator
 
@@ -141,6 +142,45 @@ def test_v3_search_core_uses_flat_board_and_integer_moves():
     assert len(engine.context.position.squares) == 90
     assert all(isinstance(move, int) for move in moves)
     assert all(len(move_to_coordinates(move)) == 4 for move in moves)
+
+
+def test_opening_book_prioritizes_conventional_starting_moves():
+    engine = AIEngineV3(Board(), time_limit=10)
+    engine.context.start()
+
+    book = opening_moves(engine.context.position, True)
+    ordered = engine.ordering.ordered(
+        engine.context.position,
+        engine.context.pseudo_moves(True),
+        ply=0,
+        opening_moves=book,
+    )
+
+    assert move_to_coordinates(book[0]) == (7, 7, 7, 4)
+    assert ordered[0] == book[0]
+
+
+def test_opening_book_has_screen_horse_reply_to_central_cannon():
+    board = Board()
+    board.move_piece(7, 7, 7, 4)
+    engine = AIEngineV3(board, time_limit=10)
+    engine.context.start()
+
+    replies = {
+        move_to_coordinates(move)
+        for move in opening_moves(engine.context.position, False)
+    }
+
+    assert (0, 1, 2, 2) in replies
+    assert (0, 7, 2, 6) in replies
+
+
+def test_opening_book_keeps_root_choice_inside_book():
+    engine = AIEngineV3(Board(), max_depth=4, time_limit=10)
+
+    move = move_from_coordinates(*engine.get_best_move(True))
+
+    assert move in engine.root_opening_moves
 
 
 def test_position_piece_lists_and_incremental_evaluation_restore_after_move():

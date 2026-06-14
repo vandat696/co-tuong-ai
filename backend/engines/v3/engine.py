@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from engines.v3.context import SearchContext, SearchTimeout
 from engines.v3.move import move_to_coordinates
+from engines.v3.opening import opening_moves
 from engines.v3.ordering import PIECE_VALUES, MoveOrdering
 from engines.v3.transposition import EXACT, LOWER, UPPER, TranspositionTable
 
@@ -41,14 +42,20 @@ class AIEngineV3:
         self.tt = TranspositionTable(tt_capacity, MATE_THRESHOLD)
         self.ordering = MoveOrdering(self.context.evaluator, MAX_PLY)
         self.stats = SearchStats()
+        self.root_opening_moves = ()
 
     def get_best_move(self, is_red_turn):
         self.context.start()
         self.tt.clear()
         self.ordering.clear()
         self.stats = SearchStats()
+        self.root_opening_moves = opening_moves(self.context.position, is_red_turn)
 
-        fallback_moves = self.context.legal_moves(is_red_turn)
+        fallback_moves = (
+            list(self.root_opening_moves)
+            if self.root_opening_moves
+            else self.context.legal_moves(is_red_turn)
+        )
         if not fallback_moves:
             return None
 
@@ -146,13 +153,18 @@ class AIEngineV3:
     def _search_root(self, depth, is_red_turn, previous_best, alpha, beta):
         best_score = -INFINITY
         best_move = None
-        pseudo_moves = self.context.pseudo_moves(is_red_turn)
+        pseudo_moves = (
+            self.root_opening_moves
+            if self.root_opening_moves
+            else self.context.pseudo_moves(is_red_turn)
+        )
         moves = self.ordering.ordered(
             self.context.position,
             pseudo_moves,
             0,
             previous_best,
             self._checking_moves(pseudo_moves, is_red_turn),
+            self.root_opening_moves,
         )
 
         legal_count = 0

@@ -24,7 +24,13 @@ class MoveOrdering:
         ply,
         preferred_move=None,
         checking_moves=None,
+        opening_moves=None,
     ):
+        opening_ranks = (
+            {move: len(opening_moves) - index for index, move in enumerate(opening_moves)}
+            if opening_moves
+            else None
+        )
         return sorted(
             moves,
             key=lambda move: self.score(
@@ -33,6 +39,7 @@ class MoveOrdering:
                 ply,
                 preferred_move,
                 checking_moves,
+                opening_ranks,
             ),
             reverse=True,
         )
@@ -44,9 +51,13 @@ class MoveOrdering:
         ply,
         preferred_move=None,
         checking_moves=None,
+        opening_ranks=None,
     ):
         if move == preferred_move:
             return 1_000_000
+
+        if opening_ranks and move in opening_ranks:
+            return 900_000 + opening_ranks[move]
 
         captured = position.squares[target_square(move)]
         if captured != Board.EMPTY:
