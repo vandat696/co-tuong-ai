@@ -1,42 +1,49 @@
-# ♞ Cờ Tướng AI Bot
+# Cờ Tướng AI
 
-Đây là project học tập nhập môn Trí Tuệ Nhân Tạo - Xây dựng bot chơi cờ tướng (Xiangqi) có khả năng tự học.
+Dự án cờ tướng gồm FastAPI backend, React/Vite frontend và bốn lựa chọn engine:
 
-## 📋 Tính năng
+- **V1:** baseline Python Minimax Alpha-Beta.
+- **V2:** WukongJS Negamax dùng làm đối thủ tham chiếu.
+- **V3:** engine Python mate-aware với PVS/LMR/selective pruning, evaluator lai
+  và opening book.
+- **V4:** search V3 kết hợp NNUE lượng tử hóa.
 
-- **Backend**: Minimax + Alpha-Beta Pruning + Transposition Table
-- **Evaluation**: Heuristic + Mạng neural ML (PyTorch)
-- **Frontend**: React + Vite, bàn cờ tương tác 10x9
+## Chạy dự án
 
-## 🏗️ Cấu trúc dự án
-co-tuong-ai/
-├── backend/ # Python engine + API
-├── frontend/ # React UI
-├── docs/ # Tài liệu
-└── README.md
+Backend:
 
-## 🚀 Setup & Chạy
-
-### Backend
-```bash
+```powershell
 cd backend
 pip install -r requirements.txt
 python api.py
 ```
-### Frontend
-```bash
+
+Frontend:
+
+```powershell
 cd frontend
 npm install
 npm run dev
-````
-📝 Tiến trình
- Bước 1: board.py + move_gen.py
- Bước 2: Minimax cơ bản
- Bước 3: React + Vite setup
- Bước 4: API FastAPI
- ... (tiếp theo)
- 👥 Vai trò
-AI Engine + API: Board, Move Generation, Minimax, FastAPI
-ML & Training: Dataset, Preprocessing, PyTorch
-Frontend: React, CSS, UX
-Last updated: 16/03/2026
+```
+
+## Cấu trúc
+
+```text
+backend/   API, luật chơi, engine, ML và benchmark
+frontend/  giao diện React/Vite
+docs/      tài liệu kỹ thuật và kết quả benchmark
+ml/        model runtime và dataset cục bộ
+```
+
+## Tài liệu
+
+- [Báo cáo project môn Trí tuệ nhân tạo](docs/BAO_CAO_MON_HOC.md)
+- [Mô tả kỹ thuật các engine](docs/AI_ENGINES.md)
+- [Bản trình bày/phản biện phiên bản](docs/AI_VERSION_DEFENSE.md)
+- [Kết quả benchmark V2/V3](docs/V2_V3_BENCHMARK_RESULTS.md)
+
+## Trạng thái hiện tại
+
+V3 cho kết quả tốt hơn V2 trong mẫu thử cùng depth 3-4, nhưng V2 vẫn mạnh hơn khi
+cùng thời gian vì tìm sâu hơn nhiều. V4 đã tải và chạy model NNUE, nhưng model
+hiện chủ yếu học để bắt chước evaluator V3 và pipeline training còn cần hoàn thiện.

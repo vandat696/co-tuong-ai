@@ -221,6 +221,9 @@ def _build_evaluation_tables():
 
 MG_SCORES, EG_SCORES = _build_evaluation_tables()
 PHASE_WEIGHTS = tuple(Evaluator.PHASE_WEIGHTS.get(kind, 0) for kind in range(8))
+SEARCH_HORSE_LEG_PENALTY = (4, 6)
+SEARCH_ROOK_ENEMY_HALF_BONUS = (4, 3)
+SEARCH_NEAR_KING_DEFENDER_BONUS = (4, 2)
 
 
 class PositionV3:
@@ -519,11 +522,49 @@ class PositionV3:
         phase = max(0, min(16, self.phase))
         return (self.mg_score * phase + self.eg_score * (16 - phase)) // 16
 
+    def evaluate_search(self):
+        """Fast search score with a few high-value dynamic Xiangqi features."""
+        mg = eg = 0
+        for side_index, pieces in enumerate(self.piece_lists):
+            sign = 1 if side_index else -1
+            is_red = bool(side_index)
+            king = self.king_squares[is_red]
+            for source in pieces:
+                piece_type = abs(self.squares[source])
+                row, col = divmod(source, 9)
+                if piece_type == Board.RED_HORSE:
+                    blocked_legs = 0
+                    for dr, dc in ORTHOGONALS:
+                        leg_row, leg_col = row + dr, col + dc
+                        if (
+                            0 <= leg_row < 10
+                            and 0 <= leg_col < 9
+                            and self.squares[leg_row * 9 + leg_col] != Board.EMPTY
+                        ):
+                            blocked_legs += 1
+                    mg -= sign * blocked_legs * SEARCH_HORSE_LEG_PENALTY[0]
+                    eg -= sign * blocked_legs * SEARCH_HORSE_LEG_PENALTY[1]
+                elif piece_type == Board.RED_CHARIOT:
+                    if (is_red and row <= 4) or (not is_red and row >= 5):
+                        mg += sign * SEARCH_ROOK_ENEMY_HALF_BONUS[0]
+                        eg += sign * SEARCH_ROOK_ENEMY_HALF_BONUS[1]
+                elif (
+                    king is not None
+                    and piece_type in (Board.RED_ADVISOR, Board.RED_ELEPHANT)
+                ):
+                    king_row, king_col = divmod(king, 9)
+                    if abs(row - king_row) <= 2 and abs(col - king_col) <= 2:
+                        mg += sign * SEARCH_NEAR_KING_DEFENDER_BONUS[0]
+                        eg += sign * SEARCH_NEAR_KING_DEFENDER_BONUS[1]
+
+        phase = max(0, min(16, self.phase))
+        return self.evaluate() + (mg * phase + eg * (16 - phase)) // 16
+
     def evaluate_nnue(self, is_red_turn):
         if self.nnue is not None:
             score = self.nnue.evaluate(is_red_turn)
             return score if is_red_turn else -score
-        return self.evaluate() # Fallback
+        return self.evaluate()
 
     def is_in_check(self, is_red_turn):
         king = self.king_squares[is_red_turn]

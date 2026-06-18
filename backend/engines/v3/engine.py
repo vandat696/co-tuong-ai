@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from engines.v3.context import SearchContext, SearchTimeout
 from engines.v3.move import move_to_coordinates
+from engines.v3.opening import opening_moves
 from engines.v3.ordering import PIECE_VALUES, MoveOrdering
 from engines.v3.transposition import EXACT, LOWER, UPPER, TranspositionTable
 
@@ -41,14 +42,20 @@ class AIEngineV3:
         self.tt = TranspositionTable(tt_capacity, MATE_THRESHOLD)
         self.ordering = MoveOrdering(self.context.evaluator, MAX_PLY)
         self.stats = SearchStats()
+        self.root_opening_moves = ()
 
     def get_best_move(self, is_red_turn):
         self.context.start()
         self.tt.clear()
         self.ordering.clear()
         self.stats = SearchStats()
+        self.root_opening_moves = opening_moves(self.context.position, is_red_turn)
 
-        fallback_moves = self.context.legal_moves(is_red_turn)
+        fallback_moves = (
+            list(self.root_opening_moves)
+            if self.root_opening_moves
+            else self.context.legal_moves(is_red_turn)
+        )
         if not fallback_moves:
             return None
 
@@ -87,7 +94,7 @@ class AIEngineV3:
             moved_piece = self.context.piece_at_source(move)
             undo = self.context.push(move)
             try:
-                score = -self.context.evaluate_for_side(not is_red_turn)
+                score = -self.context.evaluate_for_side(not is_red_turn, dynamic=True)
                 to_row, to_col = self.context.move_target(move)
                 if self._is_square_attacked(to_row, to_col, not is_red_turn):
                     score -= self.context.evaluator.get_piece_value(moved_piece)
@@ -146,13 +153,18 @@ class AIEngineV3:
     def _search_root(self, depth, is_red_turn, previous_best, alpha, beta):
         best_score = -INFINITY
         best_move = None
-        pseudo_moves = self.context.pseudo_moves(is_red_turn)
+        pseudo_moves = (
+            self.root_opening_moves
+            if self.root_opening_moves
+            else self.context.pseudo_moves(is_red_turn)
+        )
         moves = self.ordering.ordered(
             self.context.position,
             pseudo_moves,
             0,
             previous_best,
             self._checking_moves(pseudo_moves, is_red_turn),
+            self.root_opening_moves,
         )
 
         legal_count = 0
@@ -206,7 +218,7 @@ class AIEngineV3:
         self.stats.nodes += 1
 
         if ply >= MAX_PLY:
-            return self.context.evaluate_for_side(is_red_turn)
+            return self.context.evaluate_for_side(is_red_turn, dynamic=True)
 
         game_result = self.context.game_result_for_side(is_red_turn)
         if game_result is not None:
@@ -429,7 +441,7 @@ class AIEngineV3:
         self.stats.qnodes += 1
 
         if ply >= MAX_PLY:
-            return self.context.evaluate_for_side(is_red_turn)
+            return self.context.evaluate_for_side(is_red_turn, dynamic=True)
 
         game_result = self.context.game_result_for_side(is_red_turn)
         if game_result is not None:
@@ -441,7 +453,7 @@ class AIEngineV3:
             in_check = self.context.is_in_check(is_red_turn)
 
         if qply >= MAX_QUIESCENCE_PLY and not in_check:
-            return self.context.evaluate_for_side(is_red_turn)
+            return self.context.evaluate_for_side(is_red_turn, dynamic=True)
 
         if in_check:
             if moves is None:
@@ -450,7 +462,10 @@ class AIEngineV3:
                 return -MATE_SCORE + ply
             candidates = moves
         else:
-            stand_pat = self.context.evaluate_for_side(is_red_turn)
+            stand_pat = self.context.evaluate_for_side(
+                is_red_turn,
+                dynamic=qply == 0,
+            )
             if stand_pat >= beta:
                 return beta
             alpha = max(alpha, stand_pat)
